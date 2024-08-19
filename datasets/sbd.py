@@ -103,7 +103,7 @@ class SBDataset(Dataset):
             if label > 0 and frac > self.min_target_frac:
                 filtered_labels.append(label)
 
-        print(len(filtered_labels), end=', ')
+        # print(len(filtered_labels), end=', ')
         chosen_label = np.random.choice(filtered_labels) 
         chosen_target = (target == chosen_label).astype(float)
 

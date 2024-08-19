@@ -14,30 +14,8 @@ from models.seg import SegmentationModel
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-cfg = {
-    ### Data ###
-    # Dataset
-    "data_root": "/workspace/ifss/data/sbd/benchmark_RELEASE/dataset",
-    "mode": "segmentation",
-    "dataset_frac": 0.1,
-    "min_target_frac": 0.05,  # every class with less than "x" area coverage in sampled target will be removed
-    "crop_size": (320, 480), # H, W
-    
-    # Dataloader
-    "batch_size": 32,
-    "num_workers": 4,
-
-    ### Training ###
-    "lr": 3e-4,
-
-    # Trainer
-    "epochs": 1,
-    "max_click_iters": 20,  # number of times new clicks are sampled
-}
-
-
 class Trainer():
-    def __init__(self):
+    def __init__(self, cfg):
         args = get_args(cfg)
         self.args = args
 
@@ -177,7 +155,9 @@ class Trainer():
 
                     # logging
                     loss_meter.update(loss.item(), images.shape[0])
-                    print(f"\t\tClick idx [{click_idx}/{self.args.max_click_iters}]\t IoU: {self.get_iou(preds, targets):.2f}")
+                    
+                    if click_idx % 5 == 0: 
+                        print(f"\t\tClick idx [{click_idx}/{self.args.max_click_iters}]\t IoU: {self.get_iou(preds, targets):.2f}")
 
                     
                 iou = self.get_iou(preds, targets)
@@ -214,14 +194,12 @@ class Trainer():
 
         plt.show()
 
-    def visualize(self):
+    def visualize(self, max_click_iters):
         loader = DataLoader(
             self.valset,
             batch_size=2,
             shuffle=True,
         )
-
-        max_click_iters = 20
 
         self.model.eval()
         with torch.no_grad():
@@ -250,4 +228,27 @@ class Trainer():
 
 
 if __name__ == "__main__":
-    Trainer().run()
+    cfg = {
+        ### Data ###
+        # Dataset
+        "data_root": "/workspace/ifss/data/sbd/benchmark_RELEASE/dataset",
+        "mode": "segmentation",
+        "dataset_frac": 1.0,
+        "min_target_frac": 0.05,  # every class with less than "x" 
+                                # area coverage in sampled target 
+                                # will be removed                              
+        "crop_size": (320, 480), # HW
+        
+        # Dataloader
+        "batch_size": 32,
+        "num_workers": 4,
+
+        ### Training ###
+        "lr": 3e-4,
+
+        # Trainer
+        "epochs": 1,
+        "max_click_iters": 20,  # number of times new clicks are sampled
+    }
+
+    Trainer().run(cfg)
