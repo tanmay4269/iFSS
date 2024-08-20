@@ -257,7 +257,7 @@ class Trainer:
             for k, v in train_logs.items():
                 print(f"Train {k.capitalize()}: {v:.4f}", end='\t')
             
-            print('\t\t')
+            print('\n\t\t', end='')
             for k, v in val_logs.items():
                 print(f"Val {k.capitalize()}: {v:.4f}", end='\t')
             
@@ -319,14 +319,15 @@ class Trainer:
                 click_masks = click_masks.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
 
                 for click_idx in range(max_click_iters):
+                    self.update_click_masks(
+                        click_masks, prev_pred, targets, is_first_click=(click_idx == 0)
+                    )
+
                     logits, _ = self.model(images, click_masks, prev_pred, targets)
 
                     preds = torch.max(logits, dim=1)[1]
                     prev_pred = preds
 
-                    self.update_click_masks(
-                        click_masks, preds, targets, is_first_click=(click_idx == 0)
-                    )
 
                     # Plot images with click masks
                     iou = self.get_iou(
