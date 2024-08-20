@@ -1,6 +1,8 @@
 import sys
 import argparse
 
+import torch
+
 def get_args(cfg):
     parser = argparse.ArgumentParser()
     
@@ -12,8 +14,6 @@ def get_args(cfg):
     try:
         # Parse arguments, ignoring unrecognized arguments
         args, unknown = parser.parse_known_args()
-        if unknown:
-            print(f"Warning: Unrecognized arguments: {unknown}")
     except SystemExit:
         print("Error parsing arguments.")
         sys.exit(1)
@@ -33,3 +33,10 @@ class AverageMeter:
         self.sum += value * n
         self.count += n
         self.avg = self.sum / self.count
+
+def mean_ignore_inf(tensor):
+    # Replace inf with NaN
+    tensor = torch.where(torch.isinf(tensor), torch.nan, tensor)
+    
+    # Compute the mean ignoring NaNs
+    return torch.nanmean(tensor)

@@ -86,7 +86,7 @@ class Trainer:
         # Logging and Checkpointing
         self.weights_save_path = args.weights_save_path
         if args.ckpt_path:
-            self.model.load_state_dict(torch.load(args.ckpt_path))
+            self.model.load_state_dict(torch.load(args.ckpt_path, weights_only=True))
 
     def sample_clicks(self, preds, targets, is_first_click=False):
         # batch of single click per pred
@@ -151,28 +151,23 @@ class Trainer:
             prev_click_masks[i, c, ys, xs] = 1
 
     def get_iou(self, preds, targets):
-        preds = preds.view(-1)
-        targets = targets.view(-1)
+        preds = preds.view(preds.shape[0], -1)
+        targets = targets.view(targets.shape[0], -1)
 
-        pred_inds = preds == 1
-        target_inds = targets == 1
+        intersection = (preds & targets).sum(dim=1).float()
+        union = (preds | targets).sum(dim=1).float()
 
-        intersection = (
-            (pred_inds[target_inds]).long().sum().data.cpu()
-        )  # Cast to long to prevent overflows
-        union = (
-            pred_inds.long().sum().data.cpu()
-            + target_inds.long().sum().data.cpu()
-            - intersection
-        )
+        iou = intersection / torch.clamp(union, min=1.0)
+        iou[union == 0] = float('nan')
 
-        return (
-            float("nan") if union == 0 else float(intersection) / float(max(union, 1))
-        )
+        return iou
+
 
     def run_epoch(self, data_loader, optimizer=None, validation=False):
         loss_meter = AverageMeter()
         iou_meter = AverageMeter()
+        noc85_meter = AverageMeter()
+        noc90_meter = AverageMeter()
 
         if validation:
             self.model.eval()
@@ -187,6 +182,10 @@ class Trainer:
                 prev_pred = torch.zeros_like(targets)
                 click_masks = torch.zeros_like(targets)  # BHW
                 click_masks = click_masks.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
+
+                # For NoC calculation
+                reached_85 = torch.full((images.shape[0],), float('inf'))
+                reached_90 = reached_85.clone()
 
                 for click_idx in range(self.args.max_click_iters):
                     logits, loss = self.model(images, click_masks, prev_pred, targets)
@@ -206,14 +205,28 @@ class Trainer:
                     # logging
                     loss_meter.update(loss.item(), images.shape[0])
 
-                    iou = self.get_iou(preds, targets)
-                    if (click_idx + 1) % 5 == 0:
-                        print(
-                            f"\t\tClick idx [{click_idx+1}/{self.args.max_click_iters}]\t IoU: {iou:.2f}"
-                        )
+                    ious = self.get_iou(preds, targets)
 
-                iou = self.get_iou(preds, targets)
+                    above_85_idx = ((ious > 0.85).int() == 1).cpu()
+                    above_90_idx = ((ious > 0.90).int() == 1).cpu()
+                    reached_85[above_85_idx] = torch.min(reached_85[above_85_idx], torch.tensor(click_idx))
+                    reached_90[above_90_idx] = torch.min(reached_90[above_90_idx], torch.tensor(click_idx))
+
+                    iou = ious.mean().item()
+                    # if (click_idx + 1) % 5 == 0:
+                    #     print(
+                    #         f"\t\tClick idx [{click_idx+1}/{self.args.max_click_iters}]\t IoU: {iou:.2f}"
+                    #     )
+
+                    # early break
+                    if torch.min(ious) > 0.9:
+                        break
+
+                iou = self.get_iou(preds, targets).mean().item()
                 iou_meter.update(iou, images.shape[0])
+
+                noc85_meter.update(mean_ignore_inf(reached_85))
+                noc90_meter.update(mean_ignore_inf(reached_90))
 
                 if (
                     not validation
@@ -224,7 +237,12 @@ class Trainer:
                         f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t IoU: {iou:.2f}"
                     )
 
-        return loss_meter.avg, iou_meter.avg
+        return {
+            'loss': loss_meter.avg, 
+            'iou': iou_meter.avg, 
+            'noc85': noc85_meter.avg, 
+            'noc90': noc90_meter.avg
+        }
 
     def run(self):
         val_losses = collections.deque(maxlen=5)
@@ -232,21 +250,25 @@ class Trainer:
 
         print("Starting Training...")
         for epoch in range(epochs):
-            train_loss, train_iou = self.run_epoch(self.train_loader, self.optimizer)
-            val_loss, val_iou = self.run_epoch(self.val_loader, validation=True)
+            train_logs = self.run_epoch(self.train_loader, self.optimizer)
+            val_logs = self.run_epoch(self.val_loader, validation=True)
 
-            print(
-                f"Epoch [{epoch+1}/{epochs}]\t Train Loss: {train_loss:.4f}\t Val Loss: {val_loss:.4f}\t Train IoU: {train_iou:.2f}\t Val IoU: {val_iou:.2f}"
-            )
+            print(f"Epoch [{epoch+1}/{epochs}]", end='\t')
+            for k, v in train_logs.items():
+                print(f"Train {k.capitalize()}: {v:.4f}", end='\t')
+            
+            print('\t\t')
+            for k, v in val_logs.items():
+                print(f"Val {k.capitalize()}: {v:.4f}", end='\t')
+            
+            print()
 
             # saving
-            torch.save(self.model.state_dict(), self.weights_save_path)
+            if epoch > 0 and np.mean(val_losses) > val_logs['loss']:
+                torch.save(self.model.state_dict(), self.weights_save_path)
+                print(f"Model saved at epoch {epoch+1}")
 
-            # if epoch > 0 and np.mean(val_losses) > val_loss:
-            #     torch.save(self.model.state_dict(), self.weights_save_path)
-            #     print(f"Model saved at epoch {epoch+1}")
-
-            val_losses.append(val_loss)
+            val_losses.append(val_logs['loss'])
 
     def plot_images_with_clicks(
         self, images, targets, preds, click_masks, click_idx, iou
@@ -309,7 +331,7 @@ class Trainer:
                     # Plot images with click masks
                     iou = self.get_iou(
                         preds[0].unsqueeze(0), targets[0].unsqueeze(0)
-                    )  # ignore the 2nd image
+                    ).mean().item()  # ignore the 2nd image
                     self.plot_images_with_clicks(
                         images, targets, preds, click_masks, click_idx, iou
                     )
