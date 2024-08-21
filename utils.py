@@ -3,6 +3,10 @@ import argparse
 
 import torch
 
+SBD_DATAROOT = "/workspace/data/sbd/benchmark_RELEASE/dataset"
+
+DAVIS_DATAROOT = "/workspace/data/DAVIS"
+
 def get_args(cfg):
     parser = argparse.ArgumentParser()
     
@@ -40,3 +44,15 @@ def mean_ignore_inf(tensor):
     
     # Compute the mean ignoring NaNs
     return torch.nanmean(tensor)
+
+def get_iou(preds, targets):
+    preds = preds.view(preds.shape[0], -1)
+    targets = targets.view(targets.shape[0], -1)
+
+    intersection = (preds & targets).sum(dim=1).float()
+    union = (preds | targets).sum(dim=1).float()
+
+    iou = intersection / torch.clamp(union, min=1.0)
+    iou[union == 0] = float('nan')
+
+    return iou
