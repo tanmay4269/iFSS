@@ -56,3 +56,22 @@ def get_iou(preds, targets):
     iou[union == 0] = float('nan')
 
     return iou
+
+import numpy as np
+from albumentations.pytorch import ToTensorV2
+class AlbumentationsTransformWrapper:
+    def __init__(self, transform, return_tensor=False):
+        self.transform = transform
+        self.return_tensor = return_tensor
+
+    def __call__(self, image, target):
+        transformed = self.transform(image=np.array(image), mask=np.array(target))
+        
+        if self.return_tensor:
+            return self.to_tensor(transformed["image"], transformed["mask"])
+        
+        return transformed["image"], transformed["mask"]
+
+    def to_tensor(self, image, target):
+        transformed = ToTensorV2()(image=np.array(image), mask=np.array(target))
+        return transformed["image"], transformed["mask"]

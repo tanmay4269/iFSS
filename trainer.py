@@ -9,10 +9,11 @@ from torch.utils.data import DataLoader
 import albumentations as A
 
 from utils import *
-from models.seg import SegmentationModel
+from models.models import iSegModel, iFSSModel
+
 from datasets.sbd import SBDataset
 from datasets.davis import DavisDataset
-
+from datasets.fss_dataset import FSSDataset
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
@@ -25,70 +26,60 @@ class Trainer:
         crop_size = self.args.crop_size
         self.train_transform = A.Compose(
             [
-                A.Resize(
-                    height=crop_size[0],
-                    width=crop_size[1],
-                    always_apply=True,
-                    interpolation=A.cv2.INTER_LINEAR,
-                ),
-                # A.HorizontalFlip(p=0.5),
-                # A.VerticalFlip(p=0.5),
-                # A.RandomRotate90(p=0.5),
-                A.PadIfNeeded(
-                    min_height=crop_size[0],
-                    min_width=crop_size[1],
-                    border_mode=0,
-                    value=(0, 0, 0),
-                    mask_value=0,
-                ),
-                # A.RandomCrop(*crop_size),
+                A.Resize(*crop_size),
             ]
         )
 
         self.val_transform = A.Compose(
             [
-                A.Resize(
-                    height=crop_size[0],
-                    width=crop_size[1],
-                    always_apply=True,
-                    interpolation=A.cv2.INTER_LINEAR,
-                ),
-                A.PadIfNeeded(
-                    min_height=crop_size[0],
-                    min_width=crop_size[1],
-                    border_mode=0,
-                    value=(0, 0, 0),
-                    mask_value=0,
-                ),
-                # A.RandomCrop(*crop_size),
+                A.Resize(*crop_size),
             ]
         )
 
-        self.trainset = SBDataset(args, image_set="train", transforms=self.train_transform)
-        self.valset = SBDataset(args, image_set="val", transforms=self.val_transform)
+        self.train_data = FSSDataset(
+            split=args.split,
+            shot=args.shot,
+            data_root=args.data_root,
+            data_list=args.train_list,
+            transform=self.train_transform,
+            mode="train",
+            use_coco=args.use_coco,
+            use_split_coco=args.use_split_coco,
+        )
+
+        self.val_data = FSSDataset(
+            split=args.split,
+            shot=args.shot,
+            data_root=args.data_root,
+            data_list=args.val_list,
+            transform=self.val_transform,
+            mode="val",
+            use_coco=args.use_coco,
+            use_split_coco=args.use_split_coco,
+        )
 
         self.train_loader = DataLoader(
-            self.trainset,
+            self.train_data,
             batch_size=args.batch_size,
             shuffle=True,
             num_workers=self.args.num_workers,
         )
 
         self.val_loader = DataLoader(
-            self.valset,
+            self.val_data,
             batch_size=args.batch_size,
             shuffle=False,
             num_workers=self.args.num_workers,
         )
 
-        self.model = SegmentationModel(args).cuda()
+        # self.model = iSegModel(args).cuda()
+        self.model = iFSSModel(args).cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
 
         # Logging and Checkpointing
         self.weights_save_path = args.weights_save_path
         if args.ckpt_path:
             self.model.load_state_dict(torch.load(args.ckpt_path, weights_only=True))
-
 
     def run(self):
         val_losses = collections.deque(maxlen=5)
@@ -99,25 +90,26 @@ class Trainer:
             train_logs = self.run_epoch(self.train_loader, self.optimizer)
             val_logs = self.run_epoch(self.val_loader, validation=True)
 
-            print(f"Epoch [{epoch+1}/{epochs}]", end='\t')
+            print(f"Epoch [{epoch+1}/{epochs}]", end="\t")
             for k, v in train_logs.items():
-                print(f"Train {k.capitalize()}: {v:.4f}", end='\t')
-            
-            print('\n\t\t', end='')
+                print(f"Train {k.capitalize()}: {v:.4f}", end="\t")
+
+            print("\n\t\t", end="")
             for k, v in val_logs.items():
-                print(f"Val {k.capitalize()}: {v:.4f}", end='\t')
-            
+                print(f"Val {k.capitalize()}: {v:.4f}", end="\t")
+
             print()
 
             # saving
-            if epoch > 0 and np.mean(val_losses) > val_logs['loss']:
+            if epoch > 0 and np.mean(val_losses) > val_logs["loss"]:
                 torch.save(self.model.state_dict(), self.weights_save_path)
                 print(f"Model saved at epoch {epoch+1}")
 
-            val_losses.append(val_logs['loss'])
+            val_losses.append(val_logs["loss"])
 
-
-    def run_epoch(self, data_loader, optimizer=None, validation=False, early_stopping=False):
+    def run_epoch(
+        self, data_loader, optimizer=None, validation=False, early_stopping=False
+    ):
         loss_meter = AverageMeter()
         iou_meter = AverageMeter()
         noc85_meter = AverageMeter()
@@ -129,26 +121,33 @@ class Trainer:
             self.model.train()
 
         with torch.set_grad_enabled(not validation):
-            for i, (images, targets) in enumerate(data_loader):
-                images = images.cuda()
-                targets = targets.cuda()
+            for i, (x_q, y_q, x_s, y_s) in enumerate(data_loader):
+                x_q, y_q = x_q.cuda(), y_q.cuda()
+                x_s, y_s = x_s[:, 0].cuda(), y_s[:, 0].cuda()
 
-                prev_pred = torch.zeros_like(targets)
-                click_masks = torch.zeros_like(targets)  # BHW
-                click_masks = click_masks.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
+                s_prev_pred = torch.zeros_like(y_s)
+                q_prev_pred = torch.zeros_like(y_q)
+
+                s_click_mask = torch.zeros_like(y_s)  # BHW
+                s_click_mask = s_click_mask.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
 
                 # For NoC calculation
-                reached_85 = torch.full((images.shape[0],), float('inf'))
-                reached_90 = reached_85.clone()
+                # reached_85 = torch.full((x_s.shape[0],), float("inf"))
+                # reached_90 = reached_85.clone()
 
                 for click_idx in range(self.args.max_click_iters):
-                    logits, loss = self.model(images, click_masks, prev_pred, targets)
+                    output = self.model(
+                        s_click_mask, s_prev_pred, x_s, y_s, q_prev_pred, x_q, y_q
+                    )
 
-                    preds = torch.max(logits, dim=1)[1]
-                    prev_pred = preds
+                    s_logits, q_logits = output['logits']
+                    _, _, loss = output['losses']
+
+                    s_prev_pred = s_preds = torch.max(s_logits, dim=1)[1]
+                    q_prev_pred = torch.max(q_logits, dim=1)[1]
 
                     self.update_click_masks(
-                        click_masks, preds, targets, is_first_click=(click_idx == 0)
+                        s_click_mask, s_preds, y_s, is_first_click=(click_idx == 0)
                     )
 
                     if not validation:
@@ -157,51 +156,54 @@ class Trainer:
                         optimizer.step()
 
                     # logging
-                    loss_meter.update(loss.item(), images.shape[0])
+                    # loss_meter.update(loss.item(), images.shape[0])
 
-                    ious = get_iou(preds, targets)
+                    # ious = get_iou(preds, targets)
 
-                    above_85_idx = ((ious > 0.85).int() == 1).cpu()
-                    above_90_idx = ((ious > 0.90).int() == 1).cpu()
-                    reached_85[above_85_idx] = torch.min(reached_85[above_85_idx], torch.tensor(click_idx))
-                    reached_90[above_90_idx] = torch.min(reached_90[above_90_idx], torch.tensor(click_idx))
+                    # above_85_idx = ((ious > 0.85).int() == 1).cpu()
+                    # above_90_idx = ((ious > 0.90).int() == 1).cpu()
+                    # reached_85[above_85_idx] = torch.min(
+                    #     reached_85[above_85_idx], torch.tensor(click_idx)
+                    # )
+                    # reached_90[above_90_idx] = torch.min(
+                    #     reached_90[above_90_idx], torch.tensor(click_idx)
+                    # )
 
-                    iou = ious.mean().item()
-                    # if (click_idx + 1) % 5 == 0:
+                    # iou = ious.mean().item()
+                    # if click_idx == 0 or (click_idx + 1) % 5 == 0:
                     #     print(
                     #         f"\t\tClick idx [{click_idx+1}/{self.args.max_click_iters}]\t IoU: {iou:.2f}"
                     #     )
 
                     # early break
-                    if early_stopping and torch.min(ious) > 0.95:
-                        break
+                    # if early_stopping and torch.min(ious) > 0.95:
+                    #     break
 
-                iou = get_iou(preds, targets).mean().item()
-                iou_meter.update(iou, images.shape[0])
+                # iou = get_iou(preds, targets).mean().item()
+                # iou_meter.update(iou, images.shape[0])
 
-                noc85_meter.update(mean_ignore_inf(reached_85))
-                noc90_meter.update(mean_ignore_inf(reached_90))
+                # noc85_meter.update(mean_ignore_inf(reached_85))
+                # noc90_meter.update(mean_ignore_inf(reached_90))
 
-                if (
-                    not validation
-                    and len(data_loader) // 8 > 0
-                    and i % (len(data_loader) // 8) == 0
-                ):
-                    print(
-                        f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t IoU: {iou:.2f}"
-                    )
+                # if (
+                #     not validation
+                #     and len(data_loader) // 8 > 0
+                #     and i % (len(data_loader) // 8) == 0
+                # ):
+                #     print(
+                #         f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t IoU: {iou:.2f}"
+                #     )
 
         return {
-            'loss': loss_meter.avg, 
-            'iou': iou_meter.avg, 
-            'noc85': noc85_meter.avg, 
-            'noc90': noc90_meter.avg
+            "loss": loss_meter.avg,
+            "iou": iou_meter.avg,
+            "noc85": noc85_meter.avg,
+            "noc90": noc90_meter.avg,
         }
-    
 
     def evaluate_dataset(self, dataset_name):
         dataset = self.get_dataset(dataset_name)
-        
+
         data_loader = DataLoader(
             dataset,
             batch_size=self.args.batch_size,
@@ -211,22 +213,19 @@ class Trainer:
         logs = self.run_epoch(data_loader, validation=True)
 
         for k, v in logs.items():
-            if k == 'loss': continue
-            print(f"Train {k.capitalize()}: {v:.4f}", end='\t')
+            if k == "loss":
+                continue
+            print(f"Train {k.capitalize()}: {v:.4f}", end="\t")
 
-    
     def get_dataset(self, dataset_name):
-        if dataset_name == 'sbd_val':
+        if dataset_name == "sbd_val":
             dataset = self.valset
-        elif dataset_name == 'davis':
-            dataset = DavisDataset(
-                self.args, self.val_transform
-            )
+        elif dataset_name == "davis":
+            dataset = DavisDataset(self.args, self.val_transform)
         else:
             raise f"Dataset {dataset_name} isn't implemented"
- 
-        return dataset
 
+        return dataset
 
     def visualize(self, dataset_name, max_click_iters):
         loader = DataLoader(
@@ -257,15 +256,16 @@ class Trainer:
                     prev_pred = preds = torch.max(logits, dim=1)[1]
 
                     # Plot images with click masks
-                    iou = get_iou(
-                        preds[0].unsqueeze(0), targets[0].unsqueeze(0)
-                    ).mean().item()  # ignore the 2nd image
+                    iou = (
+                        get_iou(preds[0].unsqueeze(0), targets[0].unsqueeze(0))
+                        .mean()
+                        .item()
+                    )  # ignore the 2nd image
                     self.plot_images_with_clicks(
                         images, targets, preds, click_masks, click_idx, iou
                     )
 
                 break
-
 
     def plot_images_with_clicks(
         self, images, targets, preds, click_masks, click_idx, iou
@@ -294,7 +294,6 @@ class Trainer:
         fig.suptitle(f"Iteration {click_idx+1} | IoU: {iou:.2f}")
         plt.show()
 
-
     def update_click_masks(
         self, prev_click_masks, preds, targets, radius=3, is_first_click=False
     ):
@@ -322,8 +321,8 @@ class Trainer:
             ys = torch.clamp(_indices[:, 0], min=0, max=self.args.crop_size[0] - 1)
             xs = torch.clamp(_indices[:, 1], min=0, max=self.args.crop_size[1] - 1)
 
-            prev_click_masks[i, c, ys, xs] = 1   
-            
+            prev_click_masks[i, c, ys, xs] = 1
+
     def sample_clicks(self, preds, targets, is_first_click=False):
         # batch of single click per pred
         and_masks = torch.logical_and(preds, targets)
@@ -334,11 +333,11 @@ class Trainer:
         num_fn = torch.sum(fn_masks.view(batches, -1), dim=1)
         num_fp = torch.sum(fp_masks.view(batches, -1), dim=1)
 
-        if is_first_click: 
+        if is_first_click:
             is_pos_click = torch.ones((batches,))
         else:
             is_pos_click = (num_fn > num_fp).float()
-        
+
         clicks = torch.zeros((batches, 2))
 
         for i in range(batches):
@@ -357,33 +356,35 @@ class Trainer:
 
         return clicks
 
+
 if __name__ == "__main__":
     cfg = {
         ### Data ###
         # Dataset
-        "mode": "segmentation",
-        "dataset_frac": 0.01,
-        "min_target_frac": 0.05,  # every class with less than "x" 
-                                # area coverage in sampled target 
-                                # will be removed                              
-        "crop_size": (320, 480), # HW
-        
+        "split": 0,
+        "shot": 1,
+        "data_root": "data/VOCdevkit/VOC2012",
+        # "data_root": "/workspace/custom-approaches/interactive-seg/data/VOCdevkit/VOC2012",
+        "train_list": "datasets/lists/pascal/sbd_data.txt",  # voc_sbd_merge_noduplicate.txt
+        "val_list": "datasets/lists/pascal/val.txt",
+        "use_coco": False,
+        "use_split_coco": False,
+        # Augmentations
+        "crop_size": (320, 480),  # HW
         # Dataloader
         "batch_size": 32,
         "num_workers": 4,
-
         ### Training ###
         "lr": 3e-4,
-
         # Trainer
         "epochs": 10,
         "max_click_iters": 20,  # number of times new clicks are sampled
-
         ### Logging and Checkpointing ###
         "weights_save_path": "./weights/model_1.pth",
-
-        # "ckpt_path": None,
-        "ckpt_path": "./weights/model_1.pth",
+        "ckpt_path": None,
+        # "ckpt_path": "./weights/model_1.pth",
     }
 
-    Trainer(cfg).evaluate_dataset(dataset='davis')
+    Trainer(cfg).run()
+
+    # Trainer(cfg).evaluate_dataset(dataset_name='davis')

@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
+from utils import AlbumentationsTransformWrapper
 
 class FSSDataset(Dataset):
     def __init__(self, split=3, shot=1, data_root=None, data_list=None, transform=None, mode='train', use_coco=False, use_split_coco=False):
@@ -75,7 +76,8 @@ class FSSDataset(Dataset):
             self.data_list, self.sub_class_file_list = make_dataset(split, data_root, data_list, self.sub_list)
         elif self.mode == 'val':
             self.data_list, self.sub_class_file_list = make_dataset(split, data_root, data_list, self.sub_val_list)
-        self.transform = transform
+            
+        self.transform = AlbumentationsTransformWrapper(transform, return_tensor=True)
 
 
     def __getitem__(self, index):
@@ -136,17 +138,17 @@ class FSSDataset(Dataset):
         if self.transform is not None:
             image, label = self.transform(image, label)
 
-            # use alubumination or custom transform
             for k in range(self.shot):
-                support_image_list[k], support_label_list[k] = self.transform(support_image_list[k], support_label_list[k])
+                support_image_list[k], support_label_list[k] = \
+                    self.transform(support_image_list[k], support_label_list[k])
 
         s_x = torch.stack(support_image_list, dim=0)
         s_y = torch.stack(support_label_list, dim=0)
 
-        if self.mode == 'train':
-            return image, label, s_x, s_y, subcls_list
-        
-        return image, label, s_x, s_y, subcls_list, raw_label
+        image, label, s_x, s_y = image.float() / 255.0, label.long(), s_x.float() / 255.0, s_y.long()
+
+        return image, label, s_x, s_y
+        # return image, label, s_x, s_y, subcls_list, raw_label
 
 
     def get_raw_image_label(self, image_path, label_path):
@@ -154,8 +156,8 @@ class FSSDataset(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE) 
 
-        assert (image.shape[0] == label.shape[0] and image.shape[1] == label.shape[1], 
-                "Image & label shape mismatch")
+        assert image.shape[0] == label.shape[0] and image.shape[1] == label.shape[1], \
+                "Image & label shape mismatch"
 
         return image, label
 
@@ -196,7 +198,12 @@ def make_dataset(split=0, data_root=None, data_list=None, sub_list=None):
             label_name = os.path.join(data_root, line_split[1])
             
             item = (image_name, label_name)
+
+            if not os.path.isfile(label_name):
+                continue
+            
             label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+
             label_class = np.unique(label).tolist()
 
             # removing samples with small masks

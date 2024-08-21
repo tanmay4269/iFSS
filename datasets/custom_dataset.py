@@ -1,21 +1,7 @@
 import numpy as np
 from torch.utils.data import Dataset
-from albumentations.pytorch import ToTensorV2
 
 from utils import *
-
-
-class AlbumentationsTransformWrapper:
-    def __init__(self, transform):
-        self.transform = transform
-
-    def __call__(self, image, target):
-        transformed = self.transform(image=np.array(image), mask=np.array(target))
-        return transformed["image"], transformed["mask"]
-
-    def to_tensor(self, image, target):
-        transformed = ToTensorV2()(image=np.array(image), mask=np.array(target))
-        return transformed["image"], transformed["mask"]
 
 
 class CustomDataset(Dataset):
