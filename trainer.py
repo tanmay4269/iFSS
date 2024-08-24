@@ -243,7 +243,7 @@ class Trainer:
                     )
 
                 # Debug
-                break
+                # break
 
         return self.logger("return", log_dict)
 
@@ -415,22 +415,27 @@ if __name__ == "__main__":
         # Dataset
         "split": 0,
         "shot": 1,
+        
         "data_root": "data/VOCdevkit/VOC2012",
-        # "data_root": "/workspace/custom-approaches/interactive-seg/data/VOCdevkit/VOC2012",
         "train_list": "datasets/lists/pascal/sbd_data.txt",  # voc_sbd_merge_noduplicate.txt
         "val_list": "datasets/lists/pascal/val.txt",
         "use_coco": False,
         "use_split_coco": False,
+        
         # Augmentations
         "crop_size": (320, 480),  # HW
+        
         # Dataloader
         "batch_size": 32,
         "num_workers": 4,
+        
         ### Training ###
         "lr": 3e-4,
+        
         # Trainer
         "epochs": 10,
         "max_click_iters": 20,  # number of times new clicks are sampled
+        
         ### Logging and Checkpointing ###
         "weights_save_path": "./weights/model_1.pth",
         "ckpt_path": None,
@@ -438,5 +443,3 @@ if __name__ == "__main__":
     }
 
     Trainer(cfg).run()
-
-    # Trainer(cfg).evaluate_dataset(dataset_name='davis')
