@@ -58,12 +58,14 @@ class Trainer:
             use_split_coco=args.use_split_coco,
         )
 
+        print(f"Train Data Size: {len(self.train_data)}\t Val Data Size: {len(self.val_data)}")
+
         self.train_loader = DataLoader(
             self.train_data,
             batch_size=args.batch_size,
             shuffle=True,
             num_workers=self.args.num_workers,
-            drop_last=True,
+            drop_last=False,
         )
 
         self.val_loader = DataLoader(
@@ -108,7 +110,7 @@ class Trainer:
                 torch.save(self.model.state_dict(), self.weights_save_path)
                 print(f"Model saved at epoch {epoch+1}")
 
-            val_losses.append(val_logs["loss"])
+            val_losses.append(val_logs["s_loss"] + val_logs["q_loss"])
 
     def run_epoch(
         self,
@@ -213,8 +215,9 @@ class Trainer:
                     else:
                         log_dict["s_loss"].update(s_loss.item(), x_s.shape[0])
                         log_dict["q_loss"].update(q_loss.item(), x_q.shape[0])
+                        log_dict["loss"].update(loss.item(), x_s.shape[0])
 
-                    # early break
+                    # Early break
                     # if early_stopping and min(torch.min(s_ious), torch.min(q_ious)) > 0.95:
                     #     break
 
@@ -238,6 +241,9 @@ class Trainer:
                     print(
                         f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t S-IoU: {s_iou:.2f}\t Q-IoU: {q_iou:.2f}"
                     )
+
+                # Debug
+                break
 
         return self.logger("return", log_dict)
 
@@ -296,13 +302,14 @@ class Trainer:
 
             # Displaying prediction and clicks
             _click_mask = s_click_mask[i].cpu()
-            overlay = np.zeros((_click_mask.shape[1], _click_mask.shape[2], 4))
 
-            overlay[..., 0] = _click_mask[0]  # Negative clicks = Red
-            overlay[..., 1] = _click_mask[1]  # Positive clicks = Green
-            overlay[..., 3] = np.maximum(
-                _click_mask[0], _click_mask[1]
-            )  # Alpha channel
+            overlay = np.zeros((_click_mask.shape[1], _click_mask.shape[2], 4))
+            if j == 0:
+                overlay[..., 0] = _click_mask[0]  # Negative clicks = Red
+                overlay[..., 1] = _click_mask[1]  # Positive clicks = Green
+                overlay[..., 3] = np.maximum(
+                    _click_mask[0], _click_mask[1]
+                )  # Alpha channel
 
             axes[1, j].imshow(image[i].cpu().numpy().transpose(1, 2, 0))
             axes[1, j].imshow(pred[i].cpu().numpy(), cmap="gray", alpha=0.5)
@@ -382,6 +389,7 @@ class Trainer:
             for k in [
                 "s_loss",
                 "q_loss",
+                "loss",
                 "s_iou",
                 "q_iou",
                 "s_noc85",

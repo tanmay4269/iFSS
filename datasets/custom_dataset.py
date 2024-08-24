@@ -10,7 +10,6 @@ class CustomDataset(Dataset):
 
         self.transforms = AlbumentationsTransformWrapper(transforms)
 
-        self.min_target_frac = args.min_target_frac
         self.crop_size = args.crop_size
 
 
@@ -24,7 +23,7 @@ class CustomDataset(Dataset):
         filtered_labels = []
         fracs = counts / (self.crop_size[0] * self.crop_size[1])
         for label, frac in zip(labels, fracs):
-            if label > 0 and frac > 0: #self.min_target_frac:
+            if label > 0 and frac > 0:
                 filtered_labels.append(label)
 
         chosen_label = np.random.choice(filtered_labels) 
