@@ -1,0 +1,1 @@
+This project is in early development. We aim to formulate a new setup involving both interactive segmentation and few shot segmentation.
