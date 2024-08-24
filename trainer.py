@@ -63,6 +63,7 @@ class Trainer:
             batch_size=args.batch_size,
             shuffle=True,
             num_workers=self.args.num_workers,
+            drop_last=True,
         )
 
         self.val_loader = DataLoader(
@@ -70,6 +71,7 @@ class Trainer:
             batch_size=args.batch_size,
             shuffle=False,
             num_workers=self.args.num_workers,
+            drop_last=False,
         )
 
         # self.model = iSegModel(args).cuda()
@@ -90,6 +92,7 @@ class Trainer:
             train_logs = self.run_epoch(self.train_loader, self.optimizer)
             val_logs = self.run_epoch(self.val_loader, validation=True)
 
+            # Logging
             print(f"Epoch [{epoch+1}/{epochs}]", end="\t")
             for k, v in train_logs.items():
                 print(f"Train {k.capitalize()}: {v:.4f}", end="\t")
@@ -100,7 +103,7 @@ class Trainer:
 
             print()
 
-            # saving
+            # Checkpointing
             if epoch > 0 and np.mean(val_losses) > val_logs["loss"]:
                 torch.save(self.model.state_dict(), self.weights_save_path)
                 print(f"Model saved at epoch {epoch+1}")
@@ -108,12 +111,21 @@ class Trainer:
             val_losses.append(val_logs["loss"])
 
     def run_epoch(
-        self, data_loader, optimizer=None, validation=False, early_stopping=False
+        self,
+        data_loader,
+        optimizer=None,
+        validation=False,
+        early_stopping=False,
+        visualize=False,
+        max_click_iters=None,
     ):
-        loss_meter = AverageMeter()
-        iou_meter = AverageMeter()
-        noc85_meter = AverageMeter()
-        noc90_meter = AverageMeter()
+        if max_click_iters is None:
+            max_click_iters = self.args.max_click_iters
+
+        if visualize:
+            validation = True
+        else:
+            log_dict = self.logger("init")
 
         if validation:
             self.model.eval()
@@ -122,29 +134,33 @@ class Trainer:
 
         with torch.set_grad_enabled(not validation):
             for i, (x_q, y_q, x_s, y_s) in enumerate(data_loader):
-                x_q, y_q = x_q.cuda(), y_q.cuda()
                 x_s, y_s = x_s[:, 0].cuda(), y_s[:, 0].cuda()
+                x_q, y_q = x_q.cuda(), y_q.cuda()
 
                 s_prev_pred = torch.zeros_like(y_s)
                 q_prev_pred = torch.zeros_like(y_q)
 
-                s_click_mask = torch.zeros_like(y_s)  # BHW
-                s_click_mask = s_click_mask.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
+                s_click_mask = (
+                    torch.zeros_like(y_s).unsqueeze(1).repeat(1, 2, 1, 1)
+                )  # BHW -> B2HW
 
                 # For NoC calculation
-                # reached_85 = torch.full((x_s.shape[0],), float("inf"))
-                # reached_90 = reached_85.clone()
+                s_reached_85 = torch.full((x_s.shape[0],), float("inf"))
+                s_reached_90 = s_reached_85.clone()
 
-                for click_idx in range(self.args.max_click_iters):
+                q_reached_85 = torch.full((x_q.shape[0],), float("inf"))
+                q_reached_90 = q_reached_85.clone()
+
+                for click_idx in range(max_click_iters):
                     output = self.model(
                         s_click_mask, s_prev_pred, x_s, y_s, q_prev_pred, x_q, y_q
                     )
 
-                    s_logits, q_logits = output['logits']
-                    _, _, loss = output['losses']
+                    s_logits, q_logits = output["logits"]
+                    s_loss, q_loss, loss = output["losses"]
 
                     s_prev_pred = s_preds = torch.max(s_logits, dim=1)[1]
-                    q_prev_pred = torch.max(q_logits, dim=1)[1]
+                    q_prev_pred = q_preds = torch.max(q_logits, dim=1)[1]
 
                     self.update_click_masks(
                         s_click_mask, s_preds, y_s, is_first_click=(click_idx == 0)
@@ -155,51 +171,75 @@ class Trainer:
                         loss.backward()
                         optimizer.step()
 
-                    # logging
-                    # loss_meter.update(loss.item(), images.shape[0])
+                    # Logging
+                    s_ious = get_iou(s_preds, y_s)
+                    q_ious = get_iou(q_preds, y_q)
 
-                    # ious = get_iou(preds, targets)
+                    for ious, reached_85, reached_90 in zip(
+                        [s_ious, q_ious],
+                        [s_reached_85, s_reached_90],
+                        [q_reached_85, q_reached_90],
+                    ):
+                        above_85_idx = ((ious > 0.85).int() == 1).cpu()
+                        above_90_idx = ((ious > 0.90).int() == 1).cpu()
+                        reached_85[above_85_idx] = torch.min(
+                            reached_85[above_85_idx], torch.tensor(click_idx)
+                        )
+                        reached_90[above_90_idx] = torch.min(
+                            reached_90[above_90_idx], torch.tensor(click_idx)
+                        )
 
-                    # above_85_idx = ((ious > 0.85).int() == 1).cpu()
-                    # above_90_idx = ((ious > 0.90).int() == 1).cpu()
-                    # reached_85[above_85_idx] = torch.min(
-                    #     reached_85[above_85_idx], torch.tensor(click_idx)
-                    # )
-                    # reached_90[above_90_idx] = torch.min(
-                    #     reached_90[above_90_idx], torch.tensor(click_idx)
-                    # )
+                    s_iou = s_ious.mean().item()
+                    q_iou = q_ious.mean().item()
+                    if click_idx == 0 or (click_idx + 1) % 5 == 0:
+                        print(
+                            f"\t\tClick idx [{click_idx+1}/{self.args.max_click_iters}]\t S-IoU: {s_iou:.2f}\t Q-IoU: {q_iou:.2f}"
+                        )
 
-                    # iou = ious.mean().item()
-                    # if click_idx == 0 or (click_idx + 1) % 5 == 0:
-                    #     print(
-                    #         f"\t\tClick idx [{click_idx+1}/{self.args.max_click_iters}]\t IoU: {iou:.2f}"
-                    #     )
+                    # Visualizing
+                    if visualize:
+                        self._visualize(
+                            s_click_mask,
+                            s_preds,
+                            x_s,
+                            y_s,
+                            q_preds,
+                            x_q,
+                            y_q,
+                            click_idx,
+                            s_iou,
+                            q_iou,
+                        )
+                    else:
+                        log_dict["s_loss"].update(s_loss.item(), x_s.shape[0])
+                        log_dict["q_loss"].update(q_loss.item(), x_q.shape[0])
 
                     # early break
-                    # if early_stopping and torch.min(ious) > 0.95:
+                    # if early_stopping and min(torch.min(s_ious), torch.min(q_ious)) > 0.95:
                     #     break
 
-                # iou = get_iou(preds, targets).mean().item()
-                # iou_meter.update(iou, images.shape[0])
+                if visualize:
+                    return
 
-                # noc85_meter.update(mean_ignore_inf(reached_85))
-                # noc90_meter.update(mean_ignore_inf(reached_90))
+                log_dict["s_iou"].update(s_iou, x_s.shape[0])
+                log_dict["q_iou"].update(q_iou, x_q.shape[0])
 
-                # if (
-                #     not validation
-                #     and len(data_loader) // 8 > 0
-                #     and i % (len(data_loader) // 8) == 0
-                # ):
-                #     print(
-                #         f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t IoU: {iou:.2f}"
-                #     )
+                log_dict["s_noc85"].update(mean_ignore_inf(s_reached_85))
+                log_dict["s_noc90"].update(mean_ignore_inf(s_reached_90))
 
-        return {
-            "loss": loss_meter.avg,
-            "iou": iou_meter.avg,
-            "noc85": noc85_meter.avg,
-            "noc90": noc90_meter.avg,
-        }
+                log_dict["q_noc85"].update(mean_ignore_inf(q_reached_85))
+                log_dict["q_noc90"].update(mean_ignore_inf(q_reached_90))
+
+                if (
+                    not validation
+                    and len(data_loader) // 8 > 0
+                    and i % (len(data_loader) // 8) == 0
+                ):
+                    print(
+                        f"\t Iter [{i}/{len(data_loader)}]\t Loss: {loss.item():.4f}\t S-IoU: {s_iou:.2f}\t Q-IoU: {q_iou:.2f}"
+                    )
+
+        return self.logger("return", log_dict)
 
     def evaluate_dataset(self, dataset_name):
         dataset = self.get_dataset(dataset_name)
@@ -217,9 +257,20 @@ class Trainer:
                 continue
             print(f"Train {k.capitalize()}: {v:.4f}", end="\t")
 
+    def visualize(self, dataset_name, max_click_iters):
+        loader = DataLoader(
+            self.get_dataset(dataset_name),
+            batch_size=2,
+            shuffle=True,
+        )
+
+        self.run_epoch(loader, visualize=True, max_click_iters=max_click_iters)
+
     def get_dataset(self, dataset_name):
-        if dataset_name == "sbd_val":
-            dataset = self.valset
+        if dataset_name == "sbd_train":
+            dataset = self.train_data
+        elif dataset_name == "sbd_val":
+            dataset = self.val_data
         elif dataset_name == "davis":
             dataset = DavisDataset(self.args, self.val_transform)
         else:
@@ -227,71 +278,39 @@ class Trainer:
 
         return dataset
 
-    def visualize(self, dataset_name, max_click_iters):
-        loader = DataLoader(
-            self.get_dataset(dataset_name),
-            batch_size=1,
-            shuffle=True,
-        )
-
-        self.model.eval()
-        with torch.no_grad():
-            for images, targets in loader:
-                # model needs batch size > 1
-                images = torch.cat((images, images), dim=0)
-                targets = torch.cat((targets, targets), dim=0)
-                images, targets = images.cuda(), targets.cuda()
-
-                prev_pred = torch.zeros_like(targets)
-                click_masks = torch.zeros_like(targets)  # BHW
-                click_masks = click_masks.unsqueeze(1).repeat(1, 2, 1, 1)  # B2HW
-
-                for click_idx in range(max_click_iters):
-                    self.update_click_masks(
-                        click_masks, prev_pred, targets, is_first_click=(click_idx == 0)
-                    )
-
-                    logits, _ = self.model(images, click_masks, prev_pred, targets)
-
-                    prev_pred = preds = torch.max(logits, dim=1)[1]
-
-                    # Plot images with click masks
-                    iou = (
-                        get_iou(preds[0].unsqueeze(0), targets[0].unsqueeze(0))
-                        .mean()
-                        .item()
-                    )  # ignore the 2nd image
-                    self.plot_images_with_clicks(
-                        images, targets, preds, click_masks, click_idx, iou
-                    )
-
-                break
-
-    def plot_images_with_clicks(
-        self, images, targets, preds, click_masks, click_idx, iou
+    def _visualize(
+        self, s_click_mask, s_pred, x_s, y_s, q_pred, x_q, y_q, click_idx, s_iou, q_iou
     ):
-        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
         i = 0  # ignore the 2nd image
-        # Displaying ground truth
-        axes[0].imshow(images[i].cpu().numpy().transpose(1, 2, 0))
-        axes[0].imshow(targets[i].cpu().numpy(), cmap="gray", alpha=0.5)
-        axes[0].axis("off")
 
-        # Displaying prediction and clicks
-        _click_masks = click_masks[i].cpu()
-        overlay = np.zeros((_click_masks.shape[1], _click_masks.shape[2], 4))
+        for j, image, mask, pred, iou in zip(
+            [0, 1], [x_s, x_q], [y_s, y_q], [s_pred, q_pred], [s_iou, q_iou]
+        ):
+            # Displaying ground truth
+            axes[0, j].imshow(image[i].cpu().numpy().transpose(1, 2, 0))
+            axes[0, j].imshow(mask[i].cpu().numpy(), cmap="gray", alpha=0.5)
+            axes[0, j].axis("off")
+            axes[0, j].set_title("Support Image" if j == 0 else "Query Image")
 
-        overlay[..., 0] = _click_masks[0]  # Negative clicks = Red
-        overlay[..., 1] = _click_masks[1]  # Positive clicks = Green
-        overlay[..., 3] = np.maximum(_click_masks[0], _click_masks[1])  # Alpha channel
+            # Displaying prediction and clicks
+            _click_mask = s_click_mask[i].cpu()
+            overlay = np.zeros((_click_mask.shape[1], _click_mask.shape[2], 4))
 
-        axes[1].imshow(images[i].cpu().numpy().transpose(1, 2, 0))
-        axes[1].imshow(preds[i].cpu().numpy(), cmap="gray", alpha=0.5)
-        axes[1].imshow(overlay)
-        axes[1].axis("off")
+            overlay[..., 0] = _click_mask[0]  # Negative clicks = Red
+            overlay[..., 1] = _click_mask[1]  # Positive clicks = Green
+            overlay[..., 3] = np.maximum(
+                _click_mask[0], _click_mask[1]
+            )  # Alpha channel
 
-        fig.suptitle(f"Iteration {click_idx+1} | IoU: {iou:.2f}")
+            axes[1, j].imshow(image[i].cpu().numpy().transpose(1, 2, 0))
+            axes[1, j].imshow(pred[i].cpu().numpy(), cmap="gray", alpha=0.5)
+            axes[1, j].imshow(overlay)
+            axes[1, j].axis("off")
+            axes[1, j].set_title(f"IoU: {iou:.2f}")
+
+        fig.suptitle(f"Iteration {click_idx+1}")
         plt.show()
 
     def update_click_masks(
@@ -355,6 +374,31 @@ class Trainer:
             clicks[i] = click * torch.sign(is_pos_click[i] - 0.5)
 
         return clicks
+
+    def logger(self, mode, log_dict=None):
+        if mode == "init":
+            log_dict = {}
+
+            for k in [
+                "s_loss",
+                "q_loss",
+                "s_iou",
+                "q_iou",
+                "s_noc85",
+                "q_noc85",
+                "s_noc90",
+                "q_noc90",
+            ]:
+                log_dict[k] = AverageMeter()
+
+            return log_dict
+
+        if mode == "return":
+            ret = {}
+            for k, v in log_dict.items():
+                ret[k] = v.avg
+
+            return ret
 
 
 if __name__ == "__main__":
