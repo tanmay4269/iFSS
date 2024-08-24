@@ -440,4 +440,3 @@ if __name__ == "__main__":
     Trainer(cfg).run()
 
     # Trainer(cfg).evaluate_dataset(dataset_name='davis')
-    # dfiahifuhoifd
