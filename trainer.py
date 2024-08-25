@@ -16,6 +16,7 @@ from datasets.davis import DavisDataset
 from datasets.fss_dataset import FSSDataset
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+torch.backends.cudnn.enabled = False
 
 
 class Trainer:
