@@ -129,7 +129,7 @@ def train(model, cfg, model_cfg):
                         optimizer_params=optimizer_params,
                         lr_scheduler=lr_scheduler,
                         checkpoint_interval=[(0, 5), (100, 1)],
-                        image_dump_interval=3000,
+                        image_dump_interval=100,
                         metrics=[
                             AdaptiveIoU(
                                 pred_output='s_instances',
