@@ -73,12 +73,7 @@ class iFSSModel(nn.Module):
             coord_features = self.maps_transform(coord_features)
             s_outputs = self.support_forward(s_image, coord_features)
 
-        # TODO: implement FSS here
-        # Concat q_image, prev_q_output and prototype 
-        #   - for 1st iteration, make totally new model
-        #   - next, reuse same encoder but different mapping to 
-        #       input space as in support path
-        q_outputs = self.query_forward(q_image, prev_q_output, s_outputs['prototype'])
+        q_outputs = self.query_forward(q_image, prev_q_output, s_outputs['prototypes'])
         
         s_outputs['instances'] = nn.functional.interpolate(
             s_outputs['instances'], 
