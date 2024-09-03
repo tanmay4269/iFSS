@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "iseg",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "models/iter_mask/hrnet18_sbd_itermask_3p.py",
+                "--gpus=0",
+                "--workers=4",
+                "--batch-size=2", 
+                "--exp-name=first-try"
+            ]
+        },
+        {
+            "name": "ifss",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "models/ifss_models/hrnet18_sbd_ifss.py",
+                "--gpus=0",
+                "--workers=4",
+                "--batch-size=2", 
+                "--exp-name=first-try"
+            ]
+        }
+    ]
+}
