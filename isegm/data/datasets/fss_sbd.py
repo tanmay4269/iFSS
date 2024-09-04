@@ -100,7 +100,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
 
         query_instances_mask = self.remove_buggy_masks(index, label)
         query_instances_ids, _ = get_labels_with_sizes(query_instances_mask)
-
+        
         support_instances_mask = self.remove_buggy_masks(support_idx, support_label)
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
 
@@ -153,7 +153,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
             data_list=None,
             ):
         assert split in [0, 1, 2, 3, 10, 11, 999]
-
 
         if not use_coco:  # Pascal and/or SBD
             class_list = list(range(1, 21))

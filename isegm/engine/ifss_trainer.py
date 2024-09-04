@@ -257,7 +257,10 @@ class iFSSTrainer(object):
             s_image, s_gt_mask = batch_data['s_images'], batch_data['s_instances']
             s_points = batch_data['s_points']
             q_image, q_gt_mask = batch_data['q_images'], batch_data['q_masks']
-
+            
+            # import matplotlib.pyplot as plt
+            # plt.imshow(q_image[0].cpu().numpy())
+            # plt.show()
 
             orig_s_image, orig_s_gt_mask, orig_s_points = s_image.clone(), s_gt_mask.clone(), s_points.clone()
 

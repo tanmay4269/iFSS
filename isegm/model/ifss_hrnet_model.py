@@ -162,10 +162,10 @@ class HRNetModel(iFSSModel):
         use_leaky_relu = True
         
         query_input_layers = [
-            nn.Conv2d(in_channels=3 + 1, out_channels=6 + 1, kernel_size=1),
-            nn.BatchNorm2d(6 + 1),
+            nn.Conv2d(in_channels=3+1, out_channels=6+1, kernel_size=1),
+            nn.BatchNorm2d(6+1),
             nn.LeakyReLU(negative_slope=0.2) if use_leaky_relu else nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=6 + 1, out_channels=3, kernel_size=1)
+            nn.Conv2d(in_channels=6+1, out_channels=3, kernel_size=1)
         ]
         self.query_input = nn.Sequential(*query_input_layers)
         
@@ -184,7 +184,7 @@ class HRNetModel(iFSSModel):
                 align_corners=False,
             )
 
-            prototype = torch.sum(features * pred, dim=(2, 3))
+            prototype = torch.mean(features * pred, dim=(2, 3))
             prototypes.append(prototype)
         
         return {
@@ -194,6 +194,7 @@ class HRNetModel(iFSSModel):
         }
 
     def query_forward(self, image, prev_output, prototypes):
+        prev_output = torch.sigmoid(prev_output)
         x = self.query_input(torch.cat((image, prev_output), dim=1))
         x = self.query_net.query_encoder(x, prototypes)
         

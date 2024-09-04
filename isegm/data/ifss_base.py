@@ -39,7 +39,7 @@ class iFSSDataset(torch.utils.data.dataset.Dataset):
         support_sample = self.augment_sample(support_sample)
         
         # Sample points only on support image
-        # query_sample.remove_small_objects(self.min_object_area)
+        query_sample.remove_small_objects(self.min_object_area)
         support_sample.remove_small_objects(self.min_object_area)
         
         # TODO: Needs instances
