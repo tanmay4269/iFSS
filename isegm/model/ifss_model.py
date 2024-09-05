@@ -58,7 +58,7 @@ class iFSSModel(nn.Module):
             self.dist_maps = DistMaps(norm_radius=norm_radius, spatial_scale=1.0,
                                       cpu_mode=cpu_dist_maps, use_disks=use_disks)
 
-    def forward(self, s_image, prev_s_output, s_points, q_image, prev_q_output):
+    def forward(self, s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt=None):
         """
         Args: prev outputs are logits
         """
@@ -73,7 +73,12 @@ class iFSSModel(nn.Module):
             coord_features = self.maps_transform(coord_features)
             s_outputs = self.support_forward(s_image, coord_features)
 
-        q_outputs = self.query_forward(q_image, prev_q_output, s_outputs['prototypes'])
+        q_outputs = self.query_forward(
+            q_image, 
+            prev_q_output, 
+            s_outputs['prototypes'], 
+            debug_assist=[s_image, s_gt] if s_gt is not None else None
+        )
         
         s_outputs['instances'] = nn.functional.interpolate(
             s_outputs['instances'], 

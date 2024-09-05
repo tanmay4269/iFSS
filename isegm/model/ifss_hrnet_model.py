@@ -57,7 +57,6 @@ class CustomHRNet(HighResolutionNet):
         x = self.compute_pre_stage_features(x, additional_features=None)  # (64, 80, 120)
         x = self.layer1(x)  # (256, 80, 120)
         
-        # TODO: concat and shrink 1st prototype here
         _, _, H, W = x.shape
         prototype = prototypes[0].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((x, prototype), dim=1)
@@ -73,7 +72,6 @@ class CustomHRNet(HighResolutionNet):
         # (18, 80, 120)
         # (36, 40, 60)
         
-        # TODO: concat and shrink 2nd prototypes here
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[1].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
@@ -93,7 +91,6 @@ class CustomHRNet(HighResolutionNet):
         # (36, 40, 60)
         # (72, 20, 30)
         
-        # TODO: concat and shrink 3rd prototype here
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[2].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
@@ -115,7 +112,6 @@ class CustomHRNet(HighResolutionNet):
         # (72, 20, 30)
         # (144, 10, 15)
         
-        # TODO: concat and shrink 4th prototype here
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[3].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
@@ -138,6 +134,7 @@ class HRNetModel(iFSSModel):
     ):
         super().__init__(norm_layer=norm_layer, **kwargs)
         
+        # Support Branch
         self.support_net = CustomHRNet(
             width=width, 
             ocr_width=ocr_width, 
@@ -145,12 +142,25 @@ class HRNetModel(iFSSModel):
             num_classes=1, 
             norm_layer=norm_layer
         )
+        
         self.support_net.apply(LRMult(backbone_lr_mult))
         if ocr_width > 0:
             self.support_net.ocr_distri_head.apply(LRMult(1.0))
             self.support_net.ocr_gather_head.apply(LRMult(1.0))
             self.support_net.conv3x3_ocr.apply(LRMult(1.0))
             
+        # Query Branch
+        # Input
+        use_leaky_relu = True
+        query_input_layers = [
+            nn.Conv2d(in_channels=3+1, out_channels=6+1, kernel_size=1),
+            nn.BatchNorm2d(6+1),
+            nn.LeakyReLU(negative_slope=0.2) if use_leaky_relu else nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=6+1, out_channels=3, kernel_size=1)
+        ]
+        
+        self.query_input = nn.Sequential(*query_input_layers)
+        
         self.query_net = CustomHRNet(
             width=width, 
             ocr_width=ocr_width, 
@@ -159,15 +169,27 @@ class HRNetModel(iFSSModel):
             norm_layer=norm_layer
         )
         
-        use_leaky_relu = True
+        self.query_net.apply(LRMult(backbone_lr_mult))
+        if ocr_width > 0:
+            self.query_net.ocr_distri_head.apply(LRMult(1.0))
+            self.query_net.ocr_gather_head.apply(LRMult(1.0))
+            self.query_net.conv3x3_ocr.apply(LRMult(1.0))
+            
+        # Debug: Support GT Branch
+        self.support_gt_net = CustomHRNet(
+            width=width, 
+            ocr_width=ocr_width, 
+            small=small,
+            num_classes=1, 
+            norm_layer=norm_layer
+        )
         
-        query_input_layers = [
-            nn.Conv2d(in_channels=3+1, out_channels=6+1, kernel_size=1),
-            nn.BatchNorm2d(6+1),
-            nn.LeakyReLU(negative_slope=0.2) if use_leaky_relu else nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=6+1, out_channels=3, kernel_size=1)
-        ]
-        self.query_input = nn.Sequential(*query_input_layers)
+        self.support_gt_net.apply(LRMult(backbone_lr_mult))
+        if ocr_width > 0:
+            self.support_gt_net.ocr_distri_head.apply(LRMult(1.0))
+            self.support_gt_net.ocr_gather_head.apply(LRMult(1.0))
+            self.support_gt_net.conv3x3_ocr.apply(LRMult(1.0))
+        
         
     def support_forward(self, image, coord_features=None):
         outputs, feature_list = self.support_net(image, coord_features)
@@ -193,7 +215,25 @@ class HRNetModel(iFSSModel):
             'prototypes': prototypes
         }
 
-    def query_forward(self, image, prev_output, prototypes):
+    def query_forward(self, image, prev_output, prototypes, debug_assist=None):
+        # Debug
+        if debug_assist is not None:
+            s_image, s_gt = debug_assist
+            _, feature_list = self.support_gt_net(s_image)
+        
+            prototypes = []
+
+            for features in feature_list:
+                pred = F.interpolate(
+                    s_gt,
+                    size=features.shape[2:],
+                    mode="bilinear",
+                    align_corners=False,
+                )
+
+                prototype = torch.mean(features * pred, dim=(2, 3))
+                prototypes.append(prototype)
+        
         prev_output = torch.sigmoid(prev_output)
         x = self.query_input(torch.cat((image, prev_output), dim=1))
         x = self.query_net.query_encoder(x, prototypes)

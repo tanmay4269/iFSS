@@ -283,7 +283,14 @@ class iFSSTrainer(object):
                     else:
                         eval_model = self.click_models[click_indx]
 
-                    outputs = eval_model(s_image, prev_s_output, s_points, q_image, prev_q_output)
+                    outputs = eval_model(
+                        s_image, 
+                        prev_s_output, 
+                        s_points, 
+                        q_image, 
+                        prev_q_output, 
+                        s_gt_mask
+                    )
                     prev_s_output = torch.sigmoid(outputs['s_instances'])
                     prev_q_output = torch.sigmoid(outputs['q_masks'])
 
@@ -298,7 +305,7 @@ class iFSSTrainer(object):
 
             batch_data['s_points'] = s_points
 
-            outputs = self.net(s_image, prev_s_output, s_points, q_image, prev_q_output)
+            outputs = self.net(s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt_mask)
 
             # TODO: make new method for this
             loss = 0.0
