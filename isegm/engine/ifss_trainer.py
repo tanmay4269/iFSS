@@ -112,6 +112,9 @@ class iFSSTrainer(object):
                     param.requires_grad = False
                 click_model.to(self.device)
                 click_model.eval()
+                
+        # custom
+        self.do_fss_pretraining = cfg.fss_pretrain
 
     def run(self, num_epochs, start_epoch=None, validation=True):
         if start_epoch is None:
@@ -289,7 +292,7 @@ class iFSSTrainer(object):
                         s_points, 
                         q_image, 
                         prev_q_output, 
-                        s_gt_mask
+                        s_gt_mask if self.do_fss_pretraining else None
                     )
                     prev_s_output = torch.sigmoid(outputs['s_instances'])
                     prev_q_output = torch.sigmoid(outputs['q_masks'])
@@ -305,7 +308,14 @@ class iFSSTrainer(object):
 
             batch_data['s_points'] = s_points
 
-            outputs = self.net(s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt_mask)
+            outputs = self.net(
+                s_image, 
+                prev_s_output, 
+                s_points, 
+                q_image, 
+                prev_q_output, 
+                s_gt_mask if self.do_fss_pretraining else None
+            )
 
             # TODO: make new method for this
             loss = 0.0

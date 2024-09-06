@@ -70,6 +70,10 @@ def parse_args():
                         help='Do not use this argument (for internal purposes).')
 
     parser.add_argument("--local_rank", type=int, default=0)
+    
+    # Custom
+    parser.add_argument("--fss-pretrain", type=bool, default=False,
+                        help='iFSS training is unstable without FSS-pretraining')
 
     return parser.parse_args()
 

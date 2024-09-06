@@ -215,10 +215,10 @@ class HRNetModel(iFSSModel):
             'prototypes': prototypes
         }
 
-    def query_forward(self, image, prev_output, prototypes, debug_assist=None):
+    def query_forward(self, image, prev_output, prototypes, fss_pretrain_assist=None):
         # Debug
-        if debug_assist is not None:
-            s_image, s_gt = debug_assist
+        if fss_pretrain_assist is not None:
+            s_image, s_gt = fss_pretrain_assist
             _, feature_list = self.support_gt_net(s_image)
         
             prototypes = []

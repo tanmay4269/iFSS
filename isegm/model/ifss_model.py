@@ -77,7 +77,7 @@ class iFSSModel(nn.Module):
             q_image, 
             prev_q_output, 
             s_outputs['prototypes'], 
-            debug_assist=[s_image, s_gt] if s_gt is not None else None
+            fss_pretrain_assist=[s_image, s_gt] if s_gt is not None else None
         )
         
         s_outputs['instances'] = nn.functional.interpolate(
