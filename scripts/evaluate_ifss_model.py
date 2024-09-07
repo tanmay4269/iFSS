@@ -11,14 +11,15 @@ sys.path.insert(0, '.')
 from isegm.inference import utils
 from isegm.utils.exp import load_config_file
 from isegm.utils.vis import draw_probmap, draw_with_blend_and_clicks
-from isegm.inference.predictors import get_predictor
-from isegm.inference.evaluation import evaluate_dataset
+from isegm.inference.ifss_predictors import get_predictor
+from isegm.inference.ifss_evaluation import evaluate_dataset
 
 
 # BUG: this hack fixes some annoying cudnn error
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.enabled = False
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -109,7 +110,7 @@ def main():
         dataset = utils.get_dataset(dataset_name, cfg)
 
         for checkpoint_path in checkpoints_list:
-            model = utils.load_is_model(checkpoint_path, args.device)
+            model = utils.load_ifss_model(checkpoint_path, args.device)
 
             predictor_params, zoomin_params = get_predictor_and_zoomin_params(args, dataset_name)  # Not learnable 
             predictor = get_predictor(model, args.mode, args.device,

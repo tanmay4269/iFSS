@@ -5,6 +5,7 @@ import torch
 import numpy as np
 
 from isegm.data.datasets import GrabCutDataset, BerkeleyDataset, DavisDataset, SBDEvaluationDataset, PascalVocDataset
+from isegm.data.datasets import iFSS_SBD_Dataset
 from isegm.utils.serialization import load_model
 
 
@@ -45,6 +46,33 @@ def load_single_is_model(state_dict, device, **kwargs):
     return model
 
 
+def load_ifss_model(checkpoint, device, **kwargs):
+    if isinstance(checkpoint, (str, Path)):
+        state_dict = torch.load(checkpoint, map_location='cpu')
+    else:
+        state_dict = checkpoint
+
+    if isinstance(state_dict, list):
+        model = load_single_ifss_model(state_dict[0], device, **kwargs)
+        models = [load_single_ifss_model(x, device, **kwargs) for x in state_dict]
+
+        return model, models
+    else:
+        return load_single_ifss_model(state_dict, device, **kwargs)
+
+
+def load_single_ifss_model(state_dict, device, **kwargs):
+    model = load_model(state_dict['config'], **kwargs)
+    model.load_state_dict(state_dict['state_dict'], strict=False)
+
+    for param in model.parameters():
+        param.requires_grad = False
+    model.to(device)
+    model.eval()
+
+    return model
+
+
 def get_dataset(dataset_name, cfg):
     if dataset_name == 'GrabCut':
         dataset = GrabCutDataset(cfg.GRABCUT_PATH)
@@ -54,6 +82,8 @@ def get_dataset(dataset_name, cfg):
         dataset = DavisDataset(cfg.DAVIS_PATH)
     elif dataset_name == 'SBD':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH)
+    elif dataset_name == 'SBD-iFSS':
+        dataset = iFSS_SBD_Dataset(cfg.SBD_PATH, cfg.SBD_VAL_LIST, mode='val')
     elif dataset_name == 'SBD_Train':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH, split='train')
     elif dataset_name == 'PascalVOC':

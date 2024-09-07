@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "iseg",
+            "name": "ritm-train",
             "type": "debugpy",
             "request": "launch",
             "program": "train.py",
@@ -16,7 +16,20 @@
             ]
         },
         {
-            "name": "ifss",
+            "name": "ritm-eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate_model.py",
+            "console": "integratedTerminal",
+            "args": [
+                "NoBRS",
+                "--checkpoint=sbd_h18_itermask",
+                "--datasets=DAVIS",
+                "--vis-preds",
+            ]
+        },
+        {
+            "name": "ifss-train",
             "type": "debugpy",
             "request": "launch",
             "program": "train.py",
@@ -28,6 +41,19 @@
                 "--batch-size=2", 
                 "--exp-name=debug"
             ]
-        }
+        },
+        {
+            "name": "ifss-eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/evaluate_model.py",
+            "console": "integratedTerminal",
+            "args": [
+                "NoBRS",
+                "--checkpoint=sbd_h18_ifss",
+                "--datasets=SBD-iFSS",
+                "--vis-preds",
+            ]
+        },
     ]
 }

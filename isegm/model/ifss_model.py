@@ -61,6 +61,7 @@ class iFSSModel(nn.Module):
     def forward(self, s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt=None):
         """
         Args: prev outputs are logits
+        TODO: dont have a million things passed like this, concat and pass into this
         """
         
         s_image, prev_s_mask = self.prepare_input(s_image, prev_s_output)

@@ -2,13 +2,13 @@ INTERACTIVE_MODELS_PATH: "./weights"
 EXPS_PATH: "./experiments"
 
 # Evaluation datasets
-GRABCUT_PATH: "./datasets/GrabCut"
-BERKELEY_PATH: "./datasets/Berkeley"
-DAVIS_PATH: "./datasets/DAVIS"
-COCO_MVAL_PATH: "./datasets/COCO_MVal"
+GRABCUT_PATH: "./data/GrabCut"
+BERKELEY_PATH: "./data/Berkeley"
+DAVIS_PATH: "./data/DAVIS"
+COCO_MVAL_PATH: "./data/COCO_MVal"
 
 # Train datasets
-SBD_PATH: "/workspace/data/sbd/benchmark_RELEASE/dataset"
+SBD_PATH: "/workspace/data/sbd/dataset"
 
 # <FSS>
 SBD_PATH_2: "/workspace/data/VOCdevkit/VOC2012"
@@ -16,11 +16,11 @@ SBD_TRAIN_LIST: "/workspace/data/lists/pascal/sbd_data.txt"
 SBD_VAL_LIST: "/workspace/data/lists/pascal/val.txt"
 # </FSS>
 
-COCO_PATH: "./datasets/coco2017"
-LVIS_PATH: "./datasets/LVIS"
-OPENIMAGES_PATH: "./datasets/OpenImages"
-PASCALVOC_PATH: "./datasets/PascalVOC"
-ADE20K_PATH: "./datasets/ADE20K"
+COCO_PATH: "./data/coco2017"
+LVIS_PATH: "./data/LVIS"
+OPENIMAGES_PATH: "./data/OpenImages"
+PASCALVOC_PATH: "./data/PascalVOC"
+ADE20K_PATH: "./data/ADE20K"
 
 # You can download the weights for HRNet from the repository:
 # https://github.com/HRNet/HRNet-Image-Classification
