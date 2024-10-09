@@ -7,6 +7,7 @@ from pathlib import Path
 from collections import defaultdict
 
 import cv2
+from PIL import Image
 import numpy as np
 from scipy.io import loadmat
 
@@ -65,6 +66,8 @@ class iFSS_SBD_Dataset(iFSSDataset):
         # <FSS>
         label_class = np.unique(label).tolist()
         label_class = list(set(label_class) - {0, 255})
+        
+        # print(label_class, '\t', np.unique(label, return_counts=True), end='\t')
 
         filtered_label_class = []
         for c in label_class:
@@ -77,7 +80,9 @@ class iFSS_SBD_Dataset(iFSSDataset):
 
         # making a new query label
         class_chosen = random.choice(label_class)
+        # print(class_chosen)
         label = self.choose_label(label, class_chosen)
+        
         
         # selecting support pair
         file_class_chosen = self.sub_class_file_list[class_chosen]
@@ -88,9 +93,8 @@ class iFSS_SBD_Dataset(iFSSDataset):
             support_image_path, support_label_path = file_class_chosen[support_idx]
             
             if (
-                (support_image_path != image_path 
-                    or support_label_path != label_path) 
-                # and support_idx not in support_idx
+                support_image_path != image_path 
+                or support_label_path != label_path
             ):
                 break
 
@@ -98,10 +102,12 @@ class iFSS_SBD_Dataset(iFSSDataset):
         support_label = self.choose_label(support_label, class_chosen)
         # </FSS>
 
-        query_instances_mask = self.remove_buggy_masks(index, label)
+        # query_instances_mask = self.remove_buggy_masks(index, label)
+        query_instances_mask = label
         query_instances_ids, _ = get_labels_with_sizes(query_instances_mask)
         
-        support_instances_mask = self.remove_buggy_masks(support_idx, support_label)
+        # support_instances_mask = self.remove_buggy_masks(support_idx, support_label)
+        support_instances_mask = support_label
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
 
         return (
@@ -112,13 +118,13 @@ class iFSS_SBD_Dataset(iFSSDataset):
             # option
             DSample(
                 image, query_instances_mask, 
-                objects_ids=query_instances_ids, sample_id=index
+                objects_ids=[query_instances_ids[0]], sample_id=index
             ),
 
             # Support
             DSample(
                 support_image, support_instances_mask, 
-                objects_ids=support_instances_ids, sample_id=support_idx
+                objects_ids=[support_instances_ids[0]], sample_id=support_idx
             ),
         )
     
@@ -200,6 +206,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
                 elif split == 0:
                     sub_list = list(range(21, 81)) 
                     sub_val_list = list(range(1, 21))    
+                    
 
         # Actually processing data 
         self.sub_list, self.sub_val_list = sub_list, sub_val_list
@@ -227,9 +234,13 @@ class iFSS_SBD_Dataset(iFSSDataset):
                 if not os.path.isfile(label_name):
                     continue
                 
-                label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+                if mode == 'train':
+                    label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+                elif mode == 'val':
+                    label = np.array(Image.open(label_name))                    
 
                 label_class = np.unique(label).tolist()
+                label_class = list(set(label_class) - {0, 255})
 
                 # removing samples with small masks
                 filtered_label_class = []       
@@ -262,8 +273,12 @@ class iFSS_SBD_Dataset(iFSSDataset):
         image = cv2.imread(image_path, cv2.IMREAD_COLOR) 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         image /= 255.0
-        label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE) 
-
+        
+        if self.mode == 'train':
+            label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+        elif self.mode == 'val':
+            label = np.array(Image.open(label_path))   
+            
         assert image.shape[0] == label.shape[0] and image.shape[1] == label.shape[1], \
                 "Image & label shape mismatch"
 

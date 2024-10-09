@@ -34,12 +34,16 @@ class BasePredictor(object):
 
         self.to_tensor = transforms.ToTensor()
 
-        self.transforms = [zoom_in] if zoom_in is not None else []
+        # TODO: add support for these
+        # self.transforms = [zoom_in] if zoom_in is not None else []
+        self.transforms = []
         if max_size is not None:
             self.transforms.append(LimitLongestSide(max_size=max_size))
         self.transforms.append(SigmoidForPred())
-        if with_flip:
-            self.transforms.append(AddHorizontalFlip())
+        
+        # TODO: add support for these
+        # if with_flip:
+        #     self.transforms.append(AddHorizontalFlip())
 
     def set_input_images(self, query_image, support_image):
         query_image_nd = self.to_tensor(query_image)
@@ -73,7 +77,7 @@ class BasePredictor(object):
         input_query_image = self.original_query_image
         if prev_query_mask is None:
             prev_query_mask = self.prev_query_prediction
-        query_image_nd, clicks_lists, is_image_changed = self.apply_transforms(  # BUG
+        query_image_nd, _, _ = self.apply_transforms(  # BUG: no idea what this is doing
             input_query_image, [clicks_list]
         )
 
@@ -86,7 +90,12 @@ class BasePredictor(object):
         )
 
         query_pred_logits, support_pred_logits = self._get_prediction(
-            support_image_nd, prev_support_mask, clicks_lists, query_image_nd, prev_query_mask, is_image_changed
+            support_image_nd, 
+            prev_support_mask, 
+            clicks_lists, 
+            query_image_nd, 
+            prev_query_mask, 
+            is_image_changed
         )
         
         query_prediction = F.interpolate(
@@ -132,7 +141,7 @@ class BasePredictor(object):
             prev_query_mask, 
         )
         
-        return outputs['query_mask'], outputs['support_instances']
+        return outputs['q_masks'], outputs['s_instances']
 
     def _get_transform_states(self):
         return [x.get_state() for x in self.transforms]

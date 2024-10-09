@@ -6,6 +6,7 @@ from pathlib import Path
 import cv2
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, '.')
 from isegm.inference import utils
@@ -272,11 +273,35 @@ def get_prediction_vis_callback(logs_path, dataset_name, prob_thresh):
     save_path = logs_path / 'predictions_vis' / dataset_name
     save_path.mkdir(parents=True, exist_ok=True)
 
-    def callback(image, gt_mask, pred_probs, sample_id, click_indx, clicks_list):
+    def callback(
+        query_image, query_gt_mask, query_pred_probs,
+        support_image, support_gt_mask, support_pred_probs, 
+        sample_id, click_indx, clicks_list
+    ):
         sample_path = save_path / f'{sample_id}_{click_indx}.jpg'
-        prob_map = draw_probmap(pred_probs)
-        image_with_mask = draw_with_blend_and_clicks(image, pred_probs > prob_thresh, clicks_list=clicks_list)
-        cv2.imwrite(str(sample_path), np.concatenate((image_with_mask, prob_map), axis=1)[:, :, ::-1])
+        support_prob_map = draw_probmap(support_pred_probs)
+        query_prob_map = draw_probmap(query_pred_probs)
+        
+        support_image_with_mask = draw_with_blend_and_clicks(support_image * 255, support_pred_probs > prob_thresh, clicks_list=clicks_list)
+        query_image_with_mask = draw_with_blend_and_clicks(query_image * 255, query_pred_probs > prob_thresh, clicks_list=clicks_list)
+        
+        # support_pred_pair = np.concatenate((support_image_with_mask, support_prob_map), axis=1)[:, :, ::-1]
+        # query_pred_pair = np.concatenate((query_image_with_mask, query_prob_map), axis=1)[:, :, ::-1]
+        # cv2.imwrite(str(sample_path), np.concatenate((support_pred_pair, query_pred_pair), axis=0))
+        
+        fig, ax = plt.subplots(2, 2)
+        
+        ax[0,0].imshow(support_image_with_mask)
+        ax[0,1].imshow(support_prob_map)
+        ax[1,0].imshow(query_image_with_mask)
+        ax[1,1].imshow(query_prob_map)
+        
+        # for _ax in ax:
+        #     _ax.axis('off')
+            
+        plt.savefig(sample_path)
+        pass 
+        
 
     return callback
 

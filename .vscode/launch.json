@@ -46,13 +46,15 @@
             "name": "ifss-eval",
             "type": "debugpy",
             "request": "launch",
-            "program": "scripts/evaluate_model.py",
+            "program": "scripts/evaluate_ifss_model.py",
             "console": "integratedTerminal",
             "args": [
                 "NoBRS",
                 "--checkpoint=sbd_h18_ifss",
                 "--datasets=SBD-iFSS",
                 "--vis-preds",
+                "--print-ious",
+                "--save-ious",
             ]
         },
     ]

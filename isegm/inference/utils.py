@@ -83,7 +83,7 @@ def get_dataset(dataset_name, cfg):
     elif dataset_name == 'SBD':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH)
     elif dataset_name == 'SBD-iFSS':
-        dataset = iFSS_SBD_Dataset(cfg.SBD_PATH, cfg.SBD_VAL_LIST, mode='val')
+        dataset = iFSS_SBD_Dataset(cfg.SBD_VAL_PATH, cfg.SBD_VAL_LIST, mode='val', split=1)
     elif dataset_name == 'SBD_Train':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH, split='train')
     elif dataset_name == 'PascalVOC':

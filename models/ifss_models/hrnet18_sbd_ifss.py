@@ -87,7 +87,7 @@ def train(model, cfg, model_cfg):
 
     trainset = iFSS_SBD_Dataset(
         # <FSS>
-        data_root=cfg.SBD_PATH_2,
+        data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_TRAIN_LIST,
         mode='train',
         split=0,
@@ -104,7 +104,7 @@ def train(model, cfg, model_cfg):
 
     valset = iFSS_SBD_Dataset(
         # <FSS>
-        data_root=cfg.SBD_PATH_2,
+        data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_VAL_LIST,
         mode='val',
         split=0,

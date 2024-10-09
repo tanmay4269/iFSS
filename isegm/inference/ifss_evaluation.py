@@ -21,7 +21,7 @@ def evaluate_dataset(dataset, predictor, **kwargs):
         query_sample, support_sample = dataset.get_sample(index)
 
         sample_ious = evaluate_sample(
-            query_sample.image, query_sample.gt_mask, 
+            query_sample.image, query_sample._encoded_masks[..., 0], 
             support_sample.image, support_sample.gt_mask, 
             predictor, sample_id=index, **kwargs)
         
@@ -44,25 +44,31 @@ def evaluate_sample(
     """
     
     clicker = Clicker(gt_mask=support_gt_mask)
-    pred_mask = np.zeros_like(support_gt_mask)
+    query_pred_mask = np.zeros_like(query_gt_mask)
+    support_pred_mask = np.zeros_like(support_gt_mask)
     ious_list = []
 
     with torch.no_grad():
         predictor.set_input_images(query_image, support_image)
 
         for click_indx in range(max_clicks):
-            clicker.make_next_click(pred_mask)
+            clicker.make_next_click(support_pred_mask)
             query_pred_probs, support_pred_probs = predictor.get_prediction(clicker)
             query_pred_mask = query_pred_probs > pred_thr
             support_pred_mask = support_pred_probs > pred_thr
 
-            if callback is not None:  # TODO
-                callback(support_image, support_gt_mask, pred_probs, sample_id, click_indx, clicker.clicks_list)
+            q_iou = utils.get_iou(query_gt_mask, query_pred_mask)
+            s_iou = utils.get_iou(support_gt_mask, support_pred_mask)
+            ious_list.append((q_iou, s_iou))
+            
+            if callback is not None:
+                callback(
+                    query_image, query_gt_mask, query_pred_probs,
+                    support_image, support_gt_mask, support_pred_probs, 
+                    sample_id, click_indx, clicker.clicks_list
+                )
 
-            iou = utils.get_iou(support_gt_mask, pred_mask)
-            ious_list.append(iou)
-
-            if iou >= max_iou_thr and click_indx + 1 >= min_clicks:
+            if s_iou >= max_iou_thr and click_indx + 1 >= min_clicks:
                 break
 
         return np.array(ious_list, dtype=np.float32)

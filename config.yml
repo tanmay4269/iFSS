@@ -8,10 +8,10 @@ DAVIS_PATH: "./data/DAVIS"
 COCO_MVAL_PATH: "./data/COCO_MVal"
 
 # Train datasets
-SBD_PATH: "/workspace/data/sbd/dataset"
+SBD_TRAIN_PATH: "/workspace/data/sbd/dataset"
 
 # <FSS>
-SBD_PATH_2: "/workspace/data/VOCdevkit/VOC2012"
+SBD_VAL_PATH: "/workspace/data/VOCdevkit/VOC2012"  # I have no clue why how to reuse the train path 
 SBD_TRAIN_LIST: "/workspace/data/lists/pascal/sbd_data.txt"
 SBD_VAL_LIST: "/workspace/data/lists/pascal/val.txt"
 # </FSS>
