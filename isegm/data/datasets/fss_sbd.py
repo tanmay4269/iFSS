@@ -52,7 +52,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
             data_root,
             data_list,
         )
-
+        
     def get_sample(self, index):
         """
         TODO:
@@ -109,7 +109,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         # support_instances_mask = self.remove_buggy_masks(support_idx, support_label)
         support_instances_mask = support_label
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
-
+        
         return (
             # Query: 
             # Either use the wole mask with no instances
@@ -208,7 +208,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
                     sub_val_list = list(range(1, 21))    
                     
 
-        # Actually processing data 
+        # Actually processing data
         self.sub_list, self.sub_val_list = sub_list, sub_val_list
         sub_list = sub_list if mode == 'train' else sub_val_list
 

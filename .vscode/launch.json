@@ -39,8 +39,11 @@
                 "--gpus=0",
                 "--workers=4",
                 "--batch-size=2", 
-                "--exp-name=debug"
-            ]
+                "--exp-name=try-1"
+            ],
+            "env": {
+                "DEBUG":"1",
+            }
         },
         {
             "name": "ifss-eval",
@@ -50,12 +53,15 @@
             "console": "integratedTerminal",
             "args": [
                 "NoBRS",
-                "--checkpoint=sbd_h18_ifss",
+                "--checkpoint=garbage",
                 "--datasets=SBD-iFSS",
                 "--vis-preds",
                 "--print-ious",
                 "--save-ious",
-            ]
+            ],
+            "env": {
+                "DEBUG":"0",
+            }
         },
     ]
 }

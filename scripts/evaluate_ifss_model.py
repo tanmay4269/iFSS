@@ -132,6 +132,7 @@ def main():
                                        logs_prefix, dataset_results,
                                        model_name=args.model_name)
 
+            # FIXME: all_ious
             save_results(args, row_name, dataset_name, logs_path, logs_prefix, dataset_results,
                          save_ious=single_model_eval and args.save_ious,
                          single_model_eval=single_model_eval,
@@ -200,24 +201,29 @@ def save_results(args, row_name, dataset_name, logs_path, logs_prefix, dataset_r
     mean_spc, mean_spi = utils.get_time_metrics(all_ious, elapsed_time)
 
     iou_thrs = np.arange(0.8, min(0.95, args.target_iou) + 0.001, 0.05).tolist()
-    noc_list, over_max_list = utils.compute_noc_metric(all_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
-
+    
+    # TODO: noc results for all_ious
+    # noc_list, over_max_list = utils.compute_noc_metric(all_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
+    q_ious = [ious[:, 0] for ious in all_ious]
+    noc_list, over_max_list = utils.compute_noc_metric(q_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
+    
     row_name = 'last' if row_name == 'last_checkpoint' else row_name
     model_name = str(logs_path.relative_to(args.logs_path)) + ':' + logs_prefix if logs_prefix else logs_path.stem
     header, table_row = utils.get_results_table(noc_list, over_max_list, row_name, dataset_name,
                                                 mean_spc, elapsed_time, args.n_clicks,
                                                 model_name=model_name)
 
+    # FIXME: all_ious
     if args.print_ious:
         min_num_clicks = min(len(x) for x in all_ious)
         mean_ious = np.array([x[:min_num_clicks] for x in all_ious]).mean(axis=0)
-        miou_str = ' '.join([f'mIoU@{click_id}={mean_ious[click_id - 1]:.2%};'
+        miou_str = ' '.join([f'mIoU@{click_id}={mean_ious[click_id-1][0]:.2%},{mean_ious[click_id-1][1]:.2%};'
                              for click_id in [1, 2, 3, 5, 10, 20] if click_id <= min_num_clicks])
         table_row += '; ' + miou_str
     else:
         target_iou_int = int(args.target_iou * 100)
         if target_iou_int not in [80, 85, 90]:
-            noc_list, over_max_list = utils.compute_noc_metric(all_ious, iou_thrs=[args.target_iou],
+            noc_list, over_max_list = utils.compute_noc_metric(q_ious, iou_thrs=[args.target_iou],
                                                                max_clicks=args.n_clicks)
             table_row += f' NoC@{args.target_iou:.1%} = {noc_list[0]:.2f};'
             table_row += f' >={args.n_clicks}@{args.target_iou:.1%} = {over_max_list[0]}'
@@ -296,12 +302,8 @@ def get_prediction_vis_callback(logs_path, dataset_name, prob_thresh):
         ax[1,0].imshow(query_image_with_mask)
         ax[1,1].imshow(query_prob_map)
         
-        # for _ax in ax:
-        #     _ax.axis('off')
-            
         plt.savefig(sample_path)
-        pass 
-        
+        plt.close(fig) 
 
     return callback
 

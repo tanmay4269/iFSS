@@ -1,3 +1,4 @@
+import os
 from time import time
 
 import numpy as np
@@ -26,6 +27,10 @@ def evaluate_dataset(dataset, predictor, **kwargs):
             predictor, sample_id=index, **kwargs)
         
         all_ious.append(sample_ious)
+        
+        if int(os.environ["DEBUG"]) > 0:
+            if index > 2: break
+        
     end_time = time()
     elapsed_time = end_time - start_time
 
