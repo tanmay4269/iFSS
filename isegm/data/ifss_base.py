@@ -42,7 +42,7 @@ class iFSSDataset(torch.utils.data.dataset.Dataset):
         query_sample.remove_small_objects(self.min_object_area)
         support_sample.remove_small_objects(self.min_object_area)
         
-        # TODO: Needs instances
+        # FIXME: Would preffer instances
         self.points_sampler.sample_object(support_sample)
 
         points = np.array(self.points_sampler.sample_points())

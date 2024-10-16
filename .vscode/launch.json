@@ -39,7 +39,7 @@
                 "--gpus=0",
                 "--workers=4",
                 "--batch-size=2", 
-                "--exp-name=try-1"
+                "--exp-name=debug"
             ],
             "env": {
                 "DEBUG":"1",

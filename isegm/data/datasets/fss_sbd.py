@@ -67,8 +67,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
         label_class = np.unique(label).tolist()
         label_class = list(set(label_class) - {0, 255})
         
-        # print(label_class, '\t', np.unique(label, return_counts=True), end='\t')
-
         filtered_label_class = []
         for c in label_class:
             if c in self.sub_val_list and self.mode in ['val', 'test']:
@@ -80,7 +78,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
 
         # making a new query label
         class_chosen = random.choice(label_class)
-        # print(class_chosen)
         label = self.choose_label(label, class_chosen)
         
         
@@ -110,12 +107,15 @@ class iFSS_SBD_Dataset(iFSSDataset):
         support_instances_mask = support_label
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
         
+        if int(os.environ["DEBUG"]) > 0:
+            if len(query_instances_ids) > 1:
+                print(f"query_instances_ids = {query_instances_ids} | I'd assume there's only 1")
+            
+            if len(support_instances_ids) > 1:
+                print(f"support_instances_ids = {support_instances_ids} | I'd assume there's only 1")
+        
         return (
             # Query: 
-            # Either use the wole mask with no instances
-            # or use instances but thats harder evaluate
-            # either ways, DSample class isn't the right
-            # option
             DSample(
                 image, query_instances_mask, 
                 objects_ids=[query_instances_ids[0]], sample_id=index
@@ -208,7 +208,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
                     sub_val_list = list(range(1, 21))    
                     
 
-        # Actually processing data
+        # Processing data
         self.sub_list, self.sub_val_list = sub_list, sub_val_list
         sub_list = sub_list if mode == 'train' else sub_val_list
 
