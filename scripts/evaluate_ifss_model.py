@@ -205,11 +205,16 @@ def save_results(args, row_name, dataset_name, logs_path, logs_prefix, dataset_r
     # TODO: noc results for all_ious
     # noc_list, over_max_list = utils.compute_noc_metric(all_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
     q_ious = [ious[:, 0] for ious in all_ious]
+    s_ious = [ious[:, 1] for ious in all_ious]
     noc_list, over_max_list = utils.compute_noc_metric(q_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
+    s_noc_list, s_over_max_list = utils.compute_noc_metric(s_ious, iou_thrs=iou_thrs, max_clicks=args.n_clicks)
     
     row_name = 'last' if row_name == 'last_checkpoint' else row_name
     model_name = str(logs_path.relative_to(args.logs_path)) + ':' + logs_prefix if logs_prefix else logs_path.stem
     header, table_row = utils.get_results_table(noc_list, over_max_list, row_name, dataset_name,
+                                                mean_spc, elapsed_time, args.n_clicks,
+                                                model_name=model_name)
+    s_header, s_table_row = utils.get_results_table(s_noc_list, s_over_max_list, row_name, dataset_name,
                                                 mean_spc, elapsed_time, args.n_clicks,
                                                 model_name=model_name)
 
@@ -231,6 +236,11 @@ def save_results(args, row_name, dataset_name, logs_path, logs_prefix, dataset_r
     if print_header:
         print(header)
     print(table_row)
+
+
+    if print_header:
+        print(s_header)
+    print(s_table_row)
 
     if save_ious:
         ious_path = logs_path / 'ious' / (logs_prefix if logs_prefix else '')
@@ -289,11 +299,7 @@ def get_prediction_vis_callback(logs_path, dataset_name, prob_thresh):
         query_prob_map = draw_probmap(query_pred_probs)
         
         support_image_with_mask = draw_with_blend_and_clicks(support_image * 255, support_pred_probs > prob_thresh, clicks_list=clicks_list)
-        query_image_with_mask = draw_with_blend_and_clicks(query_image * 255, query_pred_probs > prob_thresh, clicks_list=clicks_list)
-        
-        # support_pred_pair = np.concatenate((support_image_with_mask, support_prob_map), axis=1)[:, :, ::-1]
-        # query_pred_pair = np.concatenate((query_image_with_mask, query_prob_map), axis=1)[:, :, ::-1]
-        # cv2.imwrite(str(sample_path), np.concatenate((support_pred_pair, query_pred_pair), axis=0))
+        query_image_with_mask = draw_with_blend_and_clicks(query_image * 255, query_pred_probs > prob_thresh)
         
         fig, ax = plt.subplots(2, 2)
         

@@ -29,7 +29,7 @@
             ]
         },
         {
-            "name": "ifss-train",
+            "name": "ifss-train-voc",
             "type": "debugpy",
             "request": "launch",
             "program": "train.py",
@@ -37,9 +37,28 @@
             "args": [
                 "models/ifss_models/hrnet18_sbd_ifss.py",
                 "--gpus=0",
-                "--workers=4",
+                "--workers=8",
                 "--batch-size=2", 
                 "--exp-name=debug"
+            ],
+            "env": {
+                "DEBUG":"1",
+            }
+        },
+        {
+            "name": "ifss-train-coco",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "models/ifss_models/hrnet18_sbd_ifss.py",
+                "--gpus=0",
+                "--workers=8",
+                "--batch-size=2", 
+                "--exp-name=debug",
+                "--use-coco",
+                "--use-split-coco"
             ],
             "env": {
                 "DEBUG":"1",
@@ -53,14 +72,14 @@
             "console": "integratedTerminal",
             "args": [
                 "NoBRS",
-                "--checkpoint=garbage",
+                "--checkpoint=80-ep",
                 "--datasets=SBD-iFSS",
                 "--vis-preds",
                 "--print-ious",
                 "--save-ious",
             ],
             "env": {
-                "DEBUG":"0",
+                "DEBUG":"1",
             }
         },
     ]

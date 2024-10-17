@@ -10,5 +10,7 @@ To get things rolling, follow these steps:
         - `pip install -r requirements.txt`
 2. Download the dataset
     - `wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar`
-    - `gdown https://drive.google.com/file/d/1ikrDlsai5QSf2GiSUR3f8PZUzyTubcuF/view?usp=sharing` replace this with `SegmentationClass` in the devkit
+    - `gdown https://drive.google.com/uc?id=1ikrDlsai5QSf2GiSUR3f8PZUzyTubcuF` replace this with `SegmentationClass` in the devkit
     - rename `SegmentationClass` to `SegmentationClassAug`
+3. Weights: `https://onedrive.live.com/?authkey=%21AMkPimlmClRvmpw&id=F7FD0B7F26543CEB%21112&cid=F7FD0B7F26543CEB&parId=root&parQt=sharedby&o=OneUp`
+    - inside `pretrained_weights`

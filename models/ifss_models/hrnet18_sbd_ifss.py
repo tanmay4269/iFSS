@@ -91,11 +91,12 @@ def train(model, cfg, model_cfg):
         data_list=cfg.SBD_TRAIN_LIST,
         mode='train',
         split=0,
+        use_coco=cfg.use_coco,
+        use_split_coco=cfg.use_split_coco,
         # </FSS>
 
         # debug
-        # augmentator=train_augmentator,
-        augmentator=val_augmentator,
+        augmentator=train_augmentator,
         min_object_area=80,
         keep_background_prob=0.01,
         points_sampler=points_sampler,
@@ -108,6 +109,8 @@ def train(model, cfg, model_cfg):
         data_list=cfg.SBD_VAL_LIST,
         mode='val',
         split=0,
+        use_coco=cfg.use_coco,
+        use_split_coco=cfg.use_split_coco,
         # </FSS>
 
         augmentator=val_augmentator,

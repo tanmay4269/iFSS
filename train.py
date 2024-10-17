@@ -6,9 +6,9 @@ import torch
 from isegm.utils.exp import init_experiment
 
 # BUG: this hack fixes some annoying cudnn error
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.enabled = False
+# torch.backends.cudnn.benchmark = False
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.enabled = False
 
 def main():
     args = parse_args()
@@ -72,8 +72,11 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, default=0)
     
     # Custom
-    parser.add_argument("--fss-pretrain", type=bool, default=False,
+    parser.add_argument("--fss-pretrain", action="store_true", default=False,
                         help='iFSS training is unstable without FSS-pretraining')
+    
+    parser.add_argument("--use-coco", action="store_true", default=False)
+    parser.add_argument("--use-split-coco", action="store_true", default=False)
 
     return parser.parse_args()
 
