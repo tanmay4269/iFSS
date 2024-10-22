@@ -19,9 +19,8 @@ from isegm.data.ifss_base import iFSSDataset
 from isegm.data.sample import DSample
 
 
-class iFSS_SBD_Dataset(iFSSDataset):
+class iFSSDataset(iFSSDataset):
     def __init__(self, 
-                 # <FSS> 
                  data_root, 
                  data_list,
                  mode='train', 
@@ -30,11 +29,9 @@ class iFSS_SBD_Dataset(iFSSDataset):
                  queries=1,
                  use_coco=False,
                  use_split_coco=False,
-                 # </FSS>
-
                  buggy_mask_thresh=0.08, 
                  **kwargs):
-        super(iFSS_SBD_Dataset, self).__init__(**kwargs)
+        super(iFSSDataset, self).__init__(**kwargs)
 
         self.mode = mode
         self.supports = supports
@@ -54,16 +51,9 @@ class iFSS_SBD_Dataset(iFSSDataset):
         )
         
     def get_sample(self, index):
-        """
-        TODO:
-        - [ ] use both class and instance masks
-        - [ ] return multiple support and query pairs
-        """
-
         image_path, label_path = self.dataset_samples[index]
         image, label = self.get_raw_image_label(image_path, label_path) 
 
-        # <FSS>
         label_class = np.unique(label).tolist()
         label_class = list(set(label_class) - {0, 255})
         
@@ -79,7 +69,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
         # making a new query label
         class_chosen = random.choice(label_class)
         label = self.choose_label(label, class_chosen)
-        
         
         # selecting support pair
         file_class_chosen = self.sub_class_file_list[class_chosen]
@@ -97,7 +86,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
 
         support_image, support_label = self.get_raw_image_label(support_image_path, support_label_path)
         support_label = self.choose_label(support_label, class_chosen)
-        # </FSS>
 
         # query_instances_mask = self.remove_buggy_masks(index, label)
         query_instances_mask = label
@@ -108,7 +96,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
         
         return (
-            # Query: 
+            # Query
             DSample(
                 image, query_instances_mask, 
                 objects_ids=[query_instances_ids[0]], sample_id=index

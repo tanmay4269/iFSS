@@ -36,7 +36,9 @@ class MultiPointSampler(BasePointSampler):
                  first_click_center=False, only_one_first_click=False,
                  sfc_inner_k=1.7, sfc_full_inner_prob=0.0):
         """
-        max_num_points: [obvious]
+        TODO: understand args
+        
+        max_num_points: Maximum number of points to sample.
         prob_gamma: 
         merge_objects_prob: 
         max_num_merged_objects: 

@@ -21,7 +21,7 @@ from isegm.model.ifss_hrnet_model import HRNetModel
 
 MODEL_NAME = 'sbd_hrnet18'
 
-from isegm.data.datasets.fss_sbd import iFSS_SBD_Dataset
+from isegm.data.datasets.fss_sbd import iFSSDataset
 
 def main(cfg):
     model, model_cfg = init_model(cfg)
@@ -56,8 +56,6 @@ def train(model, cfg, model_cfg):
     loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.s_instance_aux_loss_weight = 0.4
 
-    # TODO: maybe theres a better loss function for query?
-    #   -> check FSS repos
     loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.q_mask_loss_weight = 1.0
     loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
@@ -85,17 +83,13 @@ def train(model, cfg, model_cfg):
                                        merge_objects_prob=0.15,
                                        max_num_merged_objects=2)
 
-    trainset = iFSS_SBD_Dataset(
-        # <FSS>
+    trainset = iFSSDataset(
         data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_TRAIN_LIST,
         mode='train',
         split=0,
-        use_coco=cfg.use_coco,
-        use_split_coco=cfg.use_split_coco,
-        # </FSS>
-
-        # debug
+        use_coco=False,
+        use_split_coco=False,
         augmentator=train_augmentator,
         min_object_area=80,
         keep_background_prob=0.01,
@@ -103,16 +97,13 @@ def train(model, cfg, model_cfg):
         samples_scores_gamma=1.25
     )
 
-    valset = iFSS_SBD_Dataset(
-        # <FSS>
+    valset = iFSSDataset(
         data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_VAL_LIST,
         mode='val',
         split=0,
-        use_coco=cfg.use_coco,
-        use_split_coco=cfg.use_split_coco,
-        # </FSS>
-
+        use_coco=False,
+        use_split_coco=False,
         augmentator=val_augmentator,
         min_object_area=80,
         keep_background_prob=0.01,
@@ -131,8 +122,8 @@ def train(model, cfg, model_cfg):
                         optimizer='adam',
                         optimizer_params=optimizer_params,
                         lr_scheduler=lr_scheduler,
-                        checkpoint_interval=[(0, 5), (100, 1)],
-                        image_dump_interval=100,
+                        checkpoint_interval=[(0, 5), (100, 1)],  # (epoch_num, interval)
+                        image_dump_interval=100,  # FIXME: units?
                         metrics=[
                             AdaptiveIoU(
                                 pred_output='s_instances',

@@ -36,6 +36,8 @@ class iFSSTrainer(object):
                  prev_mask_drop_prob=0.0,
                  ):
         self.cfg = cfg
+        self.fss_pretrain_mode = cfg.fss_pretrain_mode
+        
         self.model_cfg = model_cfg
         self.max_interactive_points = max_interactive_points
         self.loss_cfg = loss_cfg
@@ -113,8 +115,6 @@ class iFSSTrainer(object):
                 click_model.to(self.device)
                 click_model.eval()
                 
-        # custom
-        self.do_fss_pretraining = cfg.fss_pretrain
 
     def run(self, num_epochs, start_epoch=None, validation=True):
         if start_epoch is None:
@@ -261,10 +261,6 @@ class iFSSTrainer(object):
             s_points = batch_data['s_points']
             q_image, q_gt_mask = batch_data['q_images'], batch_data['q_masks']
             
-            # import matplotlib.pyplot as plt
-            # plt.imshow(q_image[0].cpu().numpy())
-            # plt.show()
-
             orig_s_image, orig_s_gt_mask, orig_s_points = s_image.clone(), s_gt_mask.clone(), s_points.clone()
 
             prev_s_output = torch.zeros_like(s_image, dtype=torch.float32)[:, :1, :, :]  
@@ -292,7 +288,7 @@ class iFSSTrainer(object):
                         s_points, 
                         q_image, 
                         prev_q_output, 
-                        s_gt_mask if self.do_fss_pretraining else None
+                        s_gt_mask if self.fss_pretrain_mode else None
                     )
                     prev_s_output = torch.sigmoid(outputs['s_instances'])
                     prev_q_output = torch.sigmoid(outputs['q_masks'])
@@ -314,7 +310,7 @@ class iFSSTrainer(object):
                 s_points, 
                 q_image, 
                 prev_q_output, 
-                s_gt_mask if self.do_fss_pretraining else None
+                s_gt_mask if self.fss_pretrain_mode else None
             )
 
             # TODO: make new method for this
