@@ -1,10 +1,11 @@
 export DEBUG=1
 
 python train.py \
-    models/iter_mask/hrnet18_cocolvis_itermask_3p.py \
+    models/ifss_models/hrnet18_sbd_ifss.py \
     --gpus=0 \
     --workers=4 \
-    --batch-size=20 \
+    --fss-pretrain \
+    --batch-size=2 \
     --exp-name=fss-pretraining
 
 python train.py \
@@ -12,4 +13,5 @@ python train.py \
     --gpus=0 \
     --workers=4 \
     --batch-size=20 \
+    --weight=experiments/ifss_models/sbd_hrnet18/000_fss-pretraining/checkpoints/last_checkpoint.pth \
     --exp-name=ifss-training

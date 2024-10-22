@@ -46,7 +46,7 @@ class iFSSTrainer(object):
 
         self.click_models = click_models
         self.prev_mask_drop_prob = prev_mask_drop_prob
-
+        
         if cfg.distributed:
             cfg.batch_size //= cfg.ngpus
             cfg.val_batch_size //= cfg.ngpus

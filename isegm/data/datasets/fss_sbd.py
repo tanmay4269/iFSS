@@ -107,13 +107,6 @@ class iFSS_SBD_Dataset(iFSSDataset):
         support_instances_mask = support_label
         support_instances_ids, _ = get_labels_with_sizes(support_instances_mask)
         
-        if int(os.environ["DEBUG"]) > 0:
-            if len(query_instances_ids) > 1:
-                print(f"query_instances_ids = {query_instances_ids} | I'd assume there's only 1")
-            
-            if len(support_instances_ids) > 1:
-                print(f"support_instances_ids = {support_instances_ids} | I'd assume there's only 1")
-        
         return (
             # Query: 
             DSample(
