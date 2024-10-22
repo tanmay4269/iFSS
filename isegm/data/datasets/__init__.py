@@ -10,4 +10,4 @@ from .sbd import SBDDataset, SBDEvaluationDataset
 from .images_dir import ImagesDirDataset
 from .ade20k import ADE20kDataset
 from .pascalvoc import PascalVocDataset
-from .fss_sbd import iFSSDataset
+from .fss_sbd import iFSS_SBD_Dataset

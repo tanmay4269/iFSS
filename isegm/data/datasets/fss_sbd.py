@@ -19,7 +19,7 @@ from isegm.data.ifss_base import iFSSDataset
 from isegm.data.sample import DSample
 
 
-class iFSSDataset(iFSSDataset):
+class iFSS_SBD_Dataset(iFSSDataset):
     def __init__(self, 
                  data_root, 
                  data_list,
@@ -31,7 +31,7 @@ class iFSSDataset(iFSSDataset):
                  use_split_coco=False,
                  buggy_mask_thresh=0.08, 
                  **kwargs):
-        super(iFSSDataset, self).__init__(**kwargs)
+        super(iFSS_SBD_Dataset, self).__init__(**kwargs)
 
         self.mode = mode
         self.supports = supports
@@ -41,6 +41,8 @@ class iFSSDataset(iFSSDataset):
         self._buggy_objects = dict()
         self._buggy_mask_thresh = buggy_mask_thresh
 
+        # TODO: write this better, this implementation 
+        # is probably not standard
         self.make_dataset(
             mode,
             use_coco,

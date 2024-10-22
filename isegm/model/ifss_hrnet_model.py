@@ -216,7 +216,7 @@ class HRNetModel(iFSSModel):
         }
 
     def query_forward(self, image, prev_output, prototypes, fss_pretrain_assist=None):
-        # Debug
+        # TODO: rename `fss_pretrain_assist` to something meaningful
         if fss_pretrain_assist is not None:
             s_image, s_gt = fss_pretrain_assist
             _, feature_list = self.support_gt_net(s_image)

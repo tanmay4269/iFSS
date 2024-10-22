@@ -6,8 +6,6 @@ from torchvision import transforms
 from .points_sampler import MultiPointSampler
 from .sample import DSample
 
-# code analysis 
-from PIL import Image
 
 class iFSSDataset(torch.utils.data.dataset.Dataset):
     def __init__(self,
@@ -42,7 +40,7 @@ class iFSSDataset(torch.utils.data.dataset.Dataset):
         query_sample.remove_small_objects(self.min_object_area)
         support_sample.remove_small_objects(self.min_object_area)
         
-        # FIXME: Would preffer instances
+        # TODO: would preffer instances
         self.points_sampler.sample_object(support_sample)
 
         points = np.array(self.points_sampler.sample_points())

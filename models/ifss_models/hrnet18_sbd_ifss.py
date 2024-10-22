@@ -21,7 +21,7 @@ from isegm.model.ifss_hrnet_model import HRNetModel
 
 MODEL_NAME = 'sbd_hrnet18'
 
-from isegm.data.datasets.fss_sbd import iFSSDataset
+from isegm.data.datasets.fss_sbd import iFSS_SBD_Dataset
 
 def main(cfg):
     model, model_cfg = init_model(cfg)
@@ -33,6 +33,7 @@ def init_model(cfg):
     model_cfg.crop_size = (320, 480)
     model_cfg.num_max_points = 24
 
+    # FIXME: name this better
     model = HRNetModel(width=18, ocr_width=64, with_aux_output=True, use_leaky_relu=True,
                        use_rgb_conv=False, use_disks=True, norm_radius=5, with_prev_mask=True)
 
@@ -83,7 +84,7 @@ def train(model, cfg, model_cfg):
                                        merge_objects_prob=0.15,
                                        max_num_merged_objects=2)
 
-    trainset = iFSSDataset(
+    trainset = iFSS_SBD_Dataset(
         data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_TRAIN_LIST,
         mode='train',
@@ -97,7 +98,7 @@ def train(model, cfg, model_cfg):
         samples_scores_gamma=1.25
     )
 
-    valset = iFSSDataset(
+    valset = iFSS_SBD_Dataset(
         data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_VAL_LIST,
         mode='val',
