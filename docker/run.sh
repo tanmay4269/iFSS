@@ -1,12 +1,14 @@
 #!/bin/bash
 
-IMAGE_NAME="tanmay4269/ifss:ritm"
+# IMAGE_NAME="tanmay4269/ifss:ritm"
+IMAGE_NAME="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel"
 CONTAINER_NAME="ifss-ritm"
 
 HOST_WORK_DIR="/home/tvg/Documents/Projects/iFSS"
 CONTAINER_WORK_DIR="/workspace"
 
-docker run -it \
+sudo docker run -it \
+    --privileged \
     --gpus all \
     --name "${CONTAINER_NAME}" \
     --shm-size=8g \
