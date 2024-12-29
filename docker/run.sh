@@ -1,14 +1,18 @@
 #!/bin/bash
 
-# IMAGE_NAME="tanmay4269/ifss:ritm"
-IMAGE_NAME="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel"
+IMAGE_NAME="tanmay4269/ifss:latest"
+# IMAGE_NAME="pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel"
 CONTAINER_NAME="ifss-ritm"
 
-HOST_WORK_DIR="/home/tvg/Documents/Projects/iFSS"
+if [[ $HOSTNAME == "umic-System-Product-Name" ]]; then
+    HOST_WORK_DIR="/home/tvg/Projects/iFSS"
+else
+    HOST_WORK_DIR="/home/tvg/Documents/Projects/iFSS"
+fi
+
 CONTAINER_WORK_DIR="/workspace"
 
-sudo docker run -it \
-    --privileged \
+docker run -it \
     --gpus all \
     --name "${CONTAINER_NAME}" \
     --shm-size=8g \

@@ -205,7 +205,7 @@ class HighResolutionNet(nn.Module):
             num_branches=self.stage4_num_branches,
             num_blocks=4 * [num_blocks], num_channels=num_channels)
 
-        last_inp_channels = np.int(np.sum(pre_stage_channels))
+        last_inp_channels = int(np.sum(pre_stage_channels))
         if self.ocr_width > 0:
             ocr_mid_channels = 2 * self.ocr_width
             ocr_key_channels = self.ocr_width
@@ -405,7 +405,7 @@ class HighResolutionNet(nn.Module):
                   'You can download the weights for HRNet from the repository:\n'
                   'https://github.com/HRNet/HRNet-Image-Classification')
             exit(1)
-        pretrained_dict = torch.load(pretrained_path, map_location={'cuda:0': 'cpu'})
+        pretrained_dict = torch.load(pretrained_path, map_location={'cuda:0': 'cpu'}, weights_only=False)
         pretrained_dict = {k.replace('last_layer', 'aux_head').replace('model.', ''): v for k, v in
                            pretrained_dict.items()}
 
