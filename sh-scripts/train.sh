@@ -20,5 +20,5 @@ python train.py \
 #     --gpus=0 \
 #     --workers=4 \
 #     --batch-size=20 \
-#     --weight=experiments/ifss_models/sbd_hrnet18/000_fss-pretraining/checkpoints/last_checkpoint.pth \
+#     --weights=experiments/ifss_models/sbd_hrnet18/000_fss-pretraining/checkpoints/last_checkpoint.pth \
 #     --exp-name=ifss-training
