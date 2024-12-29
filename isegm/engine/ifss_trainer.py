@@ -3,6 +3,7 @@ import random
 import logging
 from copy import deepcopy
 from collections import defaultdict
+from easydict import EasyDict as edict
 
 import cv2
 import torch
@@ -42,7 +43,7 @@ class iFSSTrainer(object):
         prev_mask_drop_prob=0.0,
     ):
         self.cfg = cfg
-        self.pretrain_mode = cfg.pretrain_mode
+        self.pretraining_enabled = cfg.pretrain_mode
 
         self.model_cfg = model_cfg
         self.max_interactive_points = max_interactive_points
@@ -284,7 +285,6 @@ class iFSSTrainer(object):
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.val_data) + i
 
-            # Forward pass
             loss, batch_losses_logging, splitted_batch_data, outputs = (
                 self.batch_forward(batch_data, validation=True)
             )
@@ -330,22 +330,16 @@ class iFSSTrainer(object):
 
         with torch.set_grad_enabled(not validation):
             batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
+            support, query = edict(), edict()
 
-            s_image, s_gt_mask = batch_data["s_images"], batch_data["s_instances"]
-            s_points = batch_data["s_points"]
-            q_image, q_gt_mask = batch_data["q_images"], batch_data["q_masks"]
+            support.image, support.gt = batch_data["s_images"], batch_data["s_instances"]
+            support.points = batch_data["s_points"]
+            query.image, query.gt = batch_data["q_images"], batch_data["q_masks"]
 
-            orig_s_image, orig_s_gt_mask, orig_s_points = (
-                s_image.clone(),
-                s_gt_mask.clone(),
-                s_points.clone(),
-            )
-
-            prev_s_output = torch.zeros_like(s_image, dtype=torch.float32)[:, :1, :, :]
-            prev_q_output = torch.zeros_like(q_image, dtype=torch.float32)[:, :1, :, :]
+            support.prev_output = torch.zeros_like(support.image, dtype=torch.float32)[:, :1, :, :]
+            query.prev_output = torch.zeros_like(query.image, dtype=torch.float32)[:, :1, :, :]
 
             last_click_indx = None
-
             with torch.no_grad():
                 num_iters = random.randint(0, self.max_num_next_clicks)
 
@@ -363,19 +357,14 @@ class iFSSTrainer(object):
                     else:
                         eval_model = self.click_models[click_indx]
 
-                    outputs = eval_model(
-                        s_image,
-                        prev_s_output,
-                        s_points,
-                        q_image,
-                        prev_q_output,
-                        s_gt_mask if self.pretrain_mode else None,
-                    )
-                    prev_s_output = torch.sigmoid(outputs["s_instances"])
-                    prev_q_output = torch.sigmoid(outputs["q_masks"])
+                    outputs = eval_model(support, query, self.pretraining_enabled)
 
-                    s_points = get_next_points(
-                        prev_s_output, orig_s_gt_mask, s_points, click_indx + 1
+                    # For next iteration
+                    support.prev_output = torch.sigmoid(outputs["s_instances"])
+                    query.prev_output = torch.sigmoid(outputs["q_masks"])
+
+                    support.points = get_next_points(
+                        support.prev_output, support.gt, support.points, click_indx + 1
                     )
 
                     if not validation:
@@ -387,23 +376,15 @@ class iFSSTrainer(object):
                     and last_click_indx is not None
                 ):
                     zero_mask = (
-                        np.random.random(size=prev_s_output.size(0))
+                        np.random.random(size=support.prev_output.size(0))
                         < self.prev_mask_drop_prob
                     )
-                    prev_s_output[zero_mask] = torch.zeros_like(
-                        prev_s_output[zero_mask]
+                    support.prev_output[zero_mask] = torch.zeros_like(
+                        support.prev_output[zero_mask]
                     )
 
-            batch_data["s_points"] = s_points
-
-            outputs = self.net(
-                s_image,
-                prev_s_output,
-                s_points,
-                q_image,
-                prev_q_output,
-                s_gt_mask if self.pretrain_mode else None,
-            )
+            batch_data["s_points"] = support.points
+            outputs = self.net(support, query, self.pretraining_enabled)
 
             # TODO: Write a new method for this
             loss = 0.0

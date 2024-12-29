@@ -40,7 +40,7 @@
                 "--workers=8",
                 "--batch-size=2", 
                 "--exp-name=debug",
-                // "--pretrain-mode",
+                "--pretrain-mode",
             ],
             "env": {
                 "DEBUG":"1",

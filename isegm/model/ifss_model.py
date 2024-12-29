@@ -101,34 +101,43 @@ class iFSSModel(nn.Module):
                 use_disks=use_disks,
             )
 
-    def forward(
-        self, s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt=None
-    ):
+    def forward(self, s_inputs, q_inputs, pretraining_enabled):
         """
         Args: 
-            - `prev_*` are all logits
-            - `s_gt` is available during pretraining
+            - s_inputs (dict):
+                - image
+                - gt
+                - prev_output
+                - points
+            - q_inputs (dict):
+                - image
+                - gt
+                - prev_output
 
         Returns:
             - support and query instances, masks and their auxilaries
 
         TODO: 
-            - [ ] Instead of passing in args individually, concat them before passing in
+            - [ ] Make `pretraining_enabled` a class attribute
         """
 
-        s_image, prev_s_mask = self.prepare_input(s_image, prev_s_output)
-        coord_features = self.get_coord_features(s_image, prev_s_mask, s_points)
+        s_image, prev_s_mask = self.prepare_input(s_inputs.image, s_inputs.prev_output)
+        coord_features = self.get_coord_features(s_image, prev_s_mask, s_inputs.points)
 
         if self.rgb_conv is not None:
             x = self.rgb_conv(torch.cat((s_image, coord_features), dim=1))
-            s_outputs = self.support_forward(x, s_gt)
+            s_outputs = self.support_forward(
+                x, s_inputs.gt if pretraining_enabled else None)
         else:
             coord_features = self.maps_transform(coord_features)
-            s_outputs = self.support_forward(s_image, s_gt, coord_features)
+            s_outputs = self.support_forward(
+                s_image, 
+                s_inputs.gt if pretraining_enabled else None, 
+                coord_features)
 
         q_outputs = self.query_forward(
-            q_image,
-            prev_q_output,
+            q_inputs.image,
+            q_inputs.prev_output,
             s_outputs["prototypes"],
         )
 
@@ -141,7 +150,7 @@ class iFSSModel(nn.Module):
 
         q_outputs["masks"] = nn.functional.interpolate(
             q_outputs["masks"],
-            size=q_image.size()[2:],
+            size=q_inputs.image.size()[2:],
             mode="bilinear",
             align_corners=True,
         )
@@ -156,7 +165,7 @@ class iFSSModel(nn.Module):
 
             q_outputs["masks_aux"] = nn.functional.interpolate(
                 q_outputs["masks_aux"],
-                size=q_image.size()[2:],
+                size=q_inputs.image.size()[2:],
                 mode="bilinear",
                 align_corners=True,
             )
