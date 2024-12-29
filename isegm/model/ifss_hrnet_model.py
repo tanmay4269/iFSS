@@ -12,6 +12,7 @@ class CustomHRNet(HighResolutionNet):
     """
     Added `query_encoder` method that fuses support prototypes
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -58,7 +59,7 @@ class CustomHRNet(HighResolutionNet):
 
     def query_encoder(self, x, prototypes):
         """
-        Concatinates support prototype at each layer and reduces 
+        Concatinates support prototype at each layer and reduces
             dimentionality using conv1x1.
         """
         x = self.compute_pre_stage_features(
@@ -175,34 +176,34 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
-        # DEBUG
-        # FIXME: Write something about why this is needed or name it better
-        self.support_gt_net = CustomHRNet(
-            width=width,
-            ocr_width=ocr_width,
-            small=small,
-            num_classes=1,
-            norm_layer=norm_layer,
-        )
-
         # Applying LRMult
-        for net in [self.support_net, self.query_net, self.support_gt_net]:
+        for net in [self.support_net, self.query_net]:
             net.apply(LRMult(backbone_lr_mult))
             if ocr_width > 0:
                 net.ocr_distri_head.apply(LRMult(1.0))
                 net.ocr_gather_head.apply(LRMult(1.0))
                 net.conv3x3_ocr.apply(LRMult(1.0))
 
-    def support_forward(self, image, coord_features=None):
+    def support_forward(
+        self, image, s_gt=None, coord_features=None, filter_threshold=0.5
+    ):
+        """
+        Args:
+            - `s_gt` is available during pretraining
+        """
+
         outputs, feature_list = self.support_net(image, coord_features)
 
-        s_pred = (torch.sigmoid(outputs[0]) > 0.5).int()
+        s_filter = (
+            (torch.sigmoid(outputs[0]) > filter_threshold).float()
+            if s_gt is None
+            else s_gt
+        )
 
         prototypes = []
-
         for features in feature_list:
             pred = F.interpolate(
-                s_pred.float(),
+                s_filter,
                 size=features.shape[2:],
                 mode="bilinear",
                 align_corners=False,
@@ -217,37 +218,10 @@ class iFSS_HRNetModel(iFSSModel):
             "prototypes": prototypes,
         }
 
-    def query_forward(self, image, prev_output, prototypes, fss_pretrain_assist=None):
-        """
-        
-        TODO: 
-            - [ ] rename `fss_pretrain_assist` to something more meaningful
-        """
-        
-        if fss_pretrain_assist is not None:
-            s_image, s_gt = fss_pretrain_assist
-            _, feature_list = self.support_gt_net(s_image)
-
-            prototypes = []
-
-            for features in feature_list:
-                pred = F.interpolate(
-                    s_gt,
-                    size=features.shape[2:],
-                    mode="bilinear",
-                    align_corners=False,
-                )
-
-                prototype = torch.mean(features * pred, dim=(2, 3))
-                prototypes.append(prototype)
-
+    def query_forward(self, image, prev_output, prototypes):
         prev_output = torch.sigmoid(prev_output)
         x = self.query_input(torch.cat((image, prev_output), dim=1))
         x = self.query_net.query_encoder(x, prototypes)
-
         outputs = self.query_net.decoder(x)
 
-        return {
-            "masks": outputs[0], 
-            "masks_aux": outputs[1]
-        }
+        return {"masks": outputs[0], "masks_aux": outputs[1]}

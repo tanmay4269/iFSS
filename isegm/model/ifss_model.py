@@ -107,7 +107,7 @@ class iFSSModel(nn.Module):
         """
         Args: 
             - `prev_*` are all logits
-            - `s_gt` is given only when training with `--fss-pretrain` flag
+            - `s_gt` is available during pretraining
 
         Returns:
             - support and query instances, masks and their auxilaries
@@ -121,16 +121,15 @@ class iFSSModel(nn.Module):
 
         if self.rgb_conv is not None:
             x = self.rgb_conv(torch.cat((s_image, coord_features), dim=1))
-            s_outputs = self.support_forward(x)
+            s_outputs = self.support_forward(x, s_gt)
         else:
             coord_features = self.maps_transform(coord_features)
-            s_outputs = self.support_forward(s_image, coord_features)
+            s_outputs = self.support_forward(s_image, s_gt, coord_features)
 
         q_outputs = self.query_forward(
             q_image,
             prev_q_output,
             s_outputs["prototypes"],
-            fss_pretrain_assist=[s_image, s_gt] if (s_gt is not None) else None,
         )
 
         s_outputs["instances"] = nn.functional.interpolate(
@@ -174,13 +173,6 @@ class iFSSModel(nn.Module):
         return outputs
 
     def prepare_input(self, image, prev_mask):
-        # prev_mask = None
-        # if self.with_prev_mask:
-        #     prev_mask = image[:, 3:, :, :]
-        #     image = image[:, :3, :, :]
-        #     if self.binary_prev_mask:
-        #         prev_mask = (prev_mask > 0.5).float()
-
         if self.binary_prev_mask:
             prev_mask = (prev_mask > 0.5).float()
 

@@ -1,19 +1,19 @@
 export DEBUG=1
 
-# python train.py \
-#     models/ifss_models/hrnet18_sbd_ifss.py \
-#     --gpus=0 \
-#     --workers=4 \
-#     --fss-pretrain \
-#     --batch-size=2 \
-#     --exp-name=fss-pretraining
-
 python train.py \
     models/ifss_models/hrnet18_sbd_ifss.py \
     --gpus=0 \
     --workers=4 \
+    --pretrain-mode \
     --batch-size=2 \
-    --exp-name=ifss-training
+    --exp-name=fss-pretraining
+
+# python train.py \
+#     models/ifss_models/hrnet18_sbd_ifss.py \
+#     --gpus=0 \
+#     --workers=4 \
+#     --batch-size=2 \
+#     --exp-name=ifss-training
 
 # python train.py \
 #     models/ifss_models/hrnet18_sbd_ifss.py \

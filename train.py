@@ -105,12 +105,11 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, default=0)
 
     # ===== iFSS specific =====
-    # FIXME: Add better explanation
     parser.add_argument(
-        "--fss-pretrain-mode",
+        "--pretrain-mode",
         action="store_true",
         default=False,
-        help="iFSS training is unstable without FSS-pretraining",
+        help="Ground truth support mask will be used instead of that predicted by support net",
     )
 
     return parser.parse_args()

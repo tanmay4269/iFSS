@@ -39,7 +39,8 @@
                 "--gpus=0",
                 "--workers=8",
                 "--batch-size=2", 
-                "--exp-name=debug"
+                "--exp-name=debug",
+                // "--pretrain-mode",
             ],
             "env": {
                 "DEBUG":"1",

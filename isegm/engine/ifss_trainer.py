@@ -42,8 +42,7 @@ class iFSSTrainer(object):
         prev_mask_drop_prob=0.0,
     ):
         self.cfg = cfg
-        self.fss_pretrain_mode = cfg.fss_pretrain_mode  
-            # FIXME: Either name this better or explain it somewhere
+        self.pretrain_mode = cfg.pretrain_mode
 
         self.model_cfg = model_cfg
         self.max_interactive_points = max_interactive_points
@@ -370,7 +369,7 @@ class iFSSTrainer(object):
                         s_points,
                         q_image,
                         prev_q_output,
-                        s_gt_mask if self.fss_pretrain_mode else None,
+                        s_gt_mask if self.pretrain_mode else None,
                     )
                     prev_s_output = torch.sigmoid(outputs["s_instances"])
                     prev_q_output = torch.sigmoid(outputs["q_masks"])
@@ -403,10 +402,10 @@ class iFSSTrainer(object):
                 s_points,
                 q_image,
                 prev_q_output,
-                s_gt_mask if self.fss_pretrain_mode else None,
+                s_gt_mask if self.pretrain_mode else None,
             )
 
-            # TODO: make new method for this
+            # TODO: Write a new method for this
             loss = 0.0
             loss = self.add_loss(
                 "s_instance_loss",
