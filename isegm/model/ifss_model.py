@@ -105,8 +105,15 @@ class iFSSModel(nn.Module):
         self, s_image, prev_s_output, s_points, q_image, prev_q_output, s_gt=None
     ):
         """
-        Args: prev outputs are logits
-        TODO: dont have a million things passed like this, concat and pass into this
+        Args: 
+            - `prev_*` are all logits
+            - `s_gt` is given only when training with `--fss-pretrain` flag
+
+        Returns:
+            - support and query instances, masks and their auxilaries
+
+        TODO: 
+            - [ ] Instead of passing in args individually, concat them before passing in
         """
 
         s_image, prev_s_mask = self.prepare_input(s_image, prev_s_output)
@@ -123,7 +130,7 @@ class iFSSModel(nn.Module):
             q_image,
             prev_q_output,
             s_outputs["prototypes"],
-            fss_pretrain_assist=[s_image, s_gt] if s_gt is not None else None,
+            fss_pretrain_assist=[s_image, s_gt] if (s_gt is not None) else None,
         )
 
         s_outputs["instances"] = nn.functional.interpolate(

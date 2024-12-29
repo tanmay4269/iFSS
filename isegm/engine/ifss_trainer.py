@@ -157,8 +157,7 @@ class iFSSTrainer(object):
         log_prefix = "Train" + self.task_prefix.capitalize()
         tbar = (
             tqdm(self.train_data, file=self.tqdm_out, ncols=100)
-            if self.is_master
-            else self.train_data
+            if self.is_master else self.train_data
         )
 
         for metric in self.train_metrics:
@@ -169,11 +168,9 @@ class iFSSTrainer(object):
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.train_data) + i
 
-            # Forward pass
             loss, losses_logging, splitted_batch_data, outputs = \
                 self.batch_forward(batch_data)
 
-            # Backprop
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
@@ -359,8 +356,9 @@ class iFSSTrainer(object):
                     if not validation:
                         self.net.eval()
 
-                    if self.click_models is None or click_indx >= len(
-                        self.click_models
+                    if (
+                        self.click_models is None 
+                        or click_indx >= len(self.click_models)
                     ):
                         eval_model = self.net
                     else:

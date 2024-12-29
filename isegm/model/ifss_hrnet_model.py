@@ -8,8 +8,10 @@ from .modeling.hrnet_ocr import HighResolutionNet
 from isegm.model.modifiers import LRMult
 
 
-# TODO: Add some customization explanations
 class CustomHRNet(HighResolutionNet):
+    """
+    Added `query_encoder` method that fuses support prototypes
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -56,7 +58,8 @@ class CustomHRNet(HighResolutionNet):
 
     def query_encoder(self, x, prototypes):
         """
-        Iteration 1: conv1x1 is used
+        Concatinates support prototype at each layer and reduces 
+            dimentionality using conv1x1.
         """
         x = self.compute_pre_stage_features(
             x, additional_features=None
@@ -140,7 +143,7 @@ class iFSS_HRNetModel(iFSSModel):
     ):
         super().__init__(norm_layer=norm_layer, **kwargs)
 
-        # Support Branch
+        # ===== Support Branch =====
         self.support_net = CustomHRNet(
             width=width,
             ocr_width=ocr_width,
@@ -149,14 +152,7 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
-        self.support_net.apply(LRMult(backbone_lr_mult))
-        if ocr_width > 0:
-            self.support_net.ocr_distri_head.apply(LRMult(1.0))
-            self.support_net.ocr_gather_head.apply(LRMult(1.0))
-            self.support_net.conv3x3_ocr.apply(LRMult(1.0))
-
-        # Query Branch
-        # Input
+        # ===== Query Branch =====
         use_leaky_relu = True
         query_input_layers = [
             nn.Conv2d(in_channels=3 + 1, out_channels=6 + 1, kernel_size=1),
@@ -179,13 +175,8 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
-        self.query_net.apply(LRMult(backbone_lr_mult))
-        if ocr_width > 0:
-            self.query_net.ocr_distri_head.apply(LRMult(1.0))
-            self.query_net.ocr_gather_head.apply(LRMult(1.0))
-            self.query_net.conv3x3_ocr.apply(LRMult(1.0))
-
-        # Debug: Support GT Branch
+        # DEBUG
+        # FIXME: Write something about why this is needed or name it better
         self.support_gt_net = CustomHRNet(
             width=width,
             ocr_width=ocr_width,
@@ -194,11 +185,13 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
-        self.support_gt_net.apply(LRMult(backbone_lr_mult))
-        if ocr_width > 0:
-            self.support_gt_net.ocr_distri_head.apply(LRMult(1.0))
-            self.support_gt_net.ocr_gather_head.apply(LRMult(1.0))
-            self.support_gt_net.conv3x3_ocr.apply(LRMult(1.0))
+        # Applying LRMult
+        for net in [self.support_net, self.query_net, self.support_gt_net]:
+            net.apply(LRMult(backbone_lr_mult))
+            if ocr_width > 0:
+                net.ocr_distri_head.apply(LRMult(1.0))
+                net.ocr_gather_head.apply(LRMult(1.0))
+                net.conv3x3_ocr.apply(LRMult(1.0))
 
     def support_forward(self, image, coord_features=None):
         outputs, feature_list = self.support_net(image, coord_features)
@@ -225,7 +218,12 @@ class iFSS_HRNetModel(iFSSModel):
         }
 
     def query_forward(self, image, prev_output, prototypes, fss_pretrain_assist=None):
-        # TODO: rename `fss_pretrain_assist` to something meaningful
+        """
+        
+        TODO: 
+            - [ ] rename `fss_pretrain_assist` to something more meaningful
+        """
+        
         if fss_pretrain_assist is not None:
             s_image, s_gt = fss_pretrain_assist
             _, feature_list = self.support_gt_net(s_image)
@@ -249,4 +247,7 @@ class iFSS_HRNetModel(iFSSModel):
 
         outputs = self.query_net.decoder(x)
 
-        return {"masks": outputs[0], "masks_aux": outputs[1]}
+        return {
+            "masks": outputs[0], 
+            "masks_aux": outputs[1]
+        }
