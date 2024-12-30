@@ -6,11 +6,14 @@ CONTAINER_NAME="ifss-ritm"
 
 if [[ $HOSTNAME == "umic-System-Product-Name" ]]; then
     HOST_WORK_DIR="/home/tvg/Projects/iFSS"
+    HOST_SAVED_EXPT_DIR="/home/tvg/Projects/iFSS_saved_expts"
 else
-    HOST_WORK_DIR="/home/tvg/Documents/Projects/iFSS"
+    echo "Unknown host: $HOSTNAME"
+    exit 0
 fi
 
 CONTAINER_WORK_DIR="/workspace"
+CONTAINER_SAVED_EXPT_DIR="/workspace/saved_expts"
 
 docker run -it \
     --gpus all \
@@ -19,6 +22,7 @@ docker run -it \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
     -v "${HOST_WORK_DIR}:${CONTAINER_WORK_DIR}" \
+    -v "${HOST_SAVED_EXPT_DIR}:${CONTAINER_SAVED_EXPT_DIR}:ro" \
     -w "${CONTAINER_WORK_DIR}" \
     --network host \
     --ipc=host \

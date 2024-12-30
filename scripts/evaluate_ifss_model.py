@@ -16,12 +16,6 @@ from isegm.inference.ifss_predictors import get_predictor
 from isegm.inference.ifss_evaluation import evaluate_dataset
 
 
-# BUG: this hack fixes some annoying cudnn error
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.enabled = False
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -334,7 +328,7 @@ def save_results(
         mean_ious = np.array([x[:min_num_clicks] for x in all_ious]).mean(axis=0)
         miou_str = " ".join(
             [
-                f"mIoU@{click_id}={mean_ious[click_id-1][0]:.2%},{mean_ious[click_id-1][1]:.2%};"
+                f"mIoU@{click_id}={mean_ious[click_id-1][0]:.2%},{mean_ious[click_id-1][1]:.2%};\n"
                 for click_id in [1, 2, 3, 5, 10, 20]
                 if click_id <= min_num_clicks
             ]
@@ -353,7 +347,7 @@ def save_results(
 
     if print_header:
         print(header)
-    print(table_row)
+    print("\n", table_row)
 
     if print_header:
         print(s_header)
