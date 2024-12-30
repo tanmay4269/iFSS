@@ -10,7 +10,8 @@ from isegm.model.modifiers import LRMult
 
 class CustomHRNet(HighResolutionNet):
     """
-    Added `query_encoder` method that fuses support prototypes
+    Customization:
+        - Added `query_encoder` method that fuses support prototypes
     """
 
     def __init__(self, **kwargs):

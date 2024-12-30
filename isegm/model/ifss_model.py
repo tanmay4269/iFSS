@@ -118,7 +118,7 @@ class iFSSModel(nn.Module):
             - support and query instances, masks and their auxilaries
 
         TODO: 
-            - [ ] Make `pretraining_enabled` a class attribute
+            - [ ] Make `pretraining_enabled` a class attribute 
         """
 
         s_image, prev_s_mask = self.prepare_input(s_inputs.image, s_inputs.prev_output)
