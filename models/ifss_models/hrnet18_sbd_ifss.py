@@ -145,11 +145,11 @@ def train(model, cfg, model_cfg):
         optimizer="adam",
         optimizer_params=optimizer_params,
         lr_scheduler=lr_scheduler,
-        checkpoint_interval=[(0, 5), (100, 1)],  # (epoch_num, interval)
+        checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
         image_dump_interval=100,  # FIXME: units?
         metrics=[
-            AdaptiveIoU(pred_output="s_instances", gt_output="s_instances"),
-            AdaptiveIoU(pred_output="q_masks", gt_output="q_masks"),
+            AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances"),
+            AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks"),
         ],
         max_interactive_points=model_cfg.num_max_points,
         max_num_next_clicks=3,
