@@ -1,14 +1,14 @@
 import os
-from tqdm import tqdm
-
+import json
 import random
 import pickle as pkl
+from tqdm import tqdm
 from pathlib import Path
 from collections import defaultdict
 
 import cv2
-from PIL import Image
 import numpy as np
+from PIL import Image
 from scipy.io import loadmat
 
 import torch 
@@ -21,6 +21,7 @@ from isegm.data.sample import DSample
 
 class iFSS_SBD_Dataset(iFSSDataset):
     def __init__(self, 
+                 cfg,
                  data_root, 
                  data_list,
                  mode='train', 
@@ -33,6 +34,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
                  **kwargs):
         super(iFSS_SBD_Dataset, self).__init__(**kwargs)
 
+        self.cfg = cfg
         self.mode = mode
         self.supports = supports
         self.queries = queries
@@ -43,14 +45,20 @@ class iFSS_SBD_Dataset(iFSSDataset):
 
         # TODO: write this better, this implementation 
         # is probably not standard
-        self.make_dataset(
-            mode,
-            use_coco,
-            use_split_coco,
-            split,
-            data_root,
-            data_list,
-        )
+        self.dataset_samples, self.sub_class_file_list = \
+            self.make_dataset(
+                mode,
+                use_coco,
+                use_split_coco,
+                split,
+                data_root,
+                data_list,
+            )
+
+        if self.cfg.debug == 'one_batch_overfit':
+            self.dataset_samples = self.dataset_samples[:cfg.batch_size]
+            for k, v in self.sub_class_file_list.items():
+                self.sub_class_file_list[k] = v[:cfg.batch_size]
         
     def get_sample(self, index):
         image_path, label_path = self.dataset_samples[index]
@@ -198,7 +206,19 @@ class iFSS_SBD_Dataset(iFSSDataset):
         if not os.path.isfile(data_list):
             raise (RuntimeError("Image list file do not exist: " + data_list + "\n"))
 
-        print("Processing data...")
+        dump_file_name = f"split{split}_{mode}.json"
+        if dump_file_name in os.listdir(self.cfg.SBD_JSON_DUMP):
+            print("Loading from saved dump")
+            with open(os.path.join(self.cfg.SBD_JSON_DUMP, dump_file_name), "r") as file:
+                loaded_data = json.load(file)
+
+            sub_class_file_list = defaultdict(list)
+            for k, v in loaded_data[1].items():
+                sub_class_file_list[int(k)] = v
+
+            return loaded_data[0], sub_class_file_list
+
+        print(f"Couldn't find {dump_file_name}\tProcessing data...", end="")
         
         image_label_list = []
         sub_class_file_list = defaultdict(list)
@@ -243,14 +263,16 @@ class iFSS_SBD_Dataset(iFSSDataset):
                     for c in label_class:
                         if c in sub_list:
                             sub_class_file_list[c].append(item)
+        print("Done!")
 
-        
-        print("Checking image&label pair {} list done! ".format(split))
+        print(f"Dumping to {dump_file_name}...", end="")
+        with open(os.path.join(self.cfg.SBD_JSON_DUMP, dump_file_name), "w") as file:
+            data = (image_label_list, sub_class_file_list)
+            json.dump(data, file)
+        print("Done!")
 
-        self.dataset_samples, self.sub_class_file_list = (
-            image_label_list, 
-            sub_class_file_list
-        )
+        return image_label_list, sub_class_file_list
+
 
     def get_raw_image_label(self, image_path, label_path):
         image = cv2.imread(image_path, cv2.IMREAD_COLOR) 

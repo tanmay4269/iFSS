@@ -82,10 +82,11 @@ class iFSSTrainer(object):
             f"Dataset of {valset.get_samples_number()} samples was loaded for validation."
         )
 
+        shuffle = not (cfg.debug == "one_batch_overfit")
         self.train_data = DataLoader(
             trainset,
             cfg.batch_size,
-            sampler=get_sampler(trainset, shuffle=True, distributed=cfg.distributed),
+            sampler=get_sampler(trainset, shuffle=shuffle, distributed=cfg.distributed),
             drop_last=True,
             pin_memory=True,
             num_workers=cfg.workers,
@@ -108,7 +109,7 @@ class iFSSTrainer(object):
                 model, device_ids=cfg.gpu_ids, output_device=cfg.gpu_ids[0]
             )
 
-        # INFO: Took too much space, just removed it for now
+        # INFO: Too much useless text dumed
         # if self.is_master:
         #     logger.info(model)
         #     logger.info(get_config_repr(model._config))
@@ -224,7 +225,7 @@ class iFSSTrainer(object):
                     )
 
         # Saving model ckpt from here
-        if self.is_master:
+        if self.is_master and self.cfg.debug != 'one_batch_overfit':
             for metric in self.train_metrics:
                 self.sw.add_scalar(
                     tag=f"{log_prefix}Metrics/{metric.name}",

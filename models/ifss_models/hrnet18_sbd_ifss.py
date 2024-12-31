@@ -54,37 +54,49 @@ def train(model, cfg, model_cfg):
     crop_size = model_cfg.crop_size
 
     loss_cfg = edict()
-    loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
+    # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
+    loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.s_instance_loss_weight = 1.0
     loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.s_instance_aux_loss_weight = 0.4
 
-    loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
+    # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
+    loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.q_mask_loss_weight = 1.0
     loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.q_mask_aux_loss_weight = 0.4
 
-    train_augmentator = Compose(
-        [
-            UniformRandomResize(scale_range=(0.75, 1.25)),
-            Flip(),
-            RandomRotate90(),
-            ShiftScaleRotate(
-                shift_limit=0.03,
-                scale_limit=0,
-                rotate_limit=(-3, 3),
-                border_mode=0,
-                p=0.75,
-            ),
-            PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            RandomCrop(*crop_size),
-            RandomBrightnessContrast(
-                brightness_limit=(-0.25, 0.25), contrast_limit=(-0.15, 0.4), p=0.75
-            ),
-            RGBShift(r_shift_limit=10, g_shift_limit=10, b_shift_limit=10, p=0.75),
-        ],
-        p=1.0,
-    )
+    if cfg.debug == 'one_batch_overfit':
+        train_augmentator = Compose(
+            [
+                UniformRandomResize(scale_range=(0.75, 1.25)),
+                PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
+                RandomCrop(*crop_size),
+            ],
+            p=1.0,
+        )
+    else:
+        train_augmentator = Compose(
+            [
+                UniformRandomResize(scale_range=(0.75, 1.25)),
+                Flip(),
+                RandomRotate90(),
+                ShiftScaleRotate(
+                    shift_limit=0.03,
+                    scale_limit=0,
+                    rotate_limit=(-3, 3),
+                    border_mode=0,
+                    p=0.75,
+                ),
+                PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
+                RandomCrop(*crop_size),
+                RandomBrightnessContrast(
+                    brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.25
+                ),
+                RGBShift(r_shift_limit=5, g_shift_limit=5, b_shift_limit=5, p=0.25),
+            ],
+            p=1.0,
+        )
 
     val_augmentator = Compose(
         [
@@ -103,6 +115,7 @@ def train(model, cfg, model_cfg):
     )
 
     trainset = iFSS_SBD_Dataset(
+        cfg,  # FIXME: Find a better way of doing this
         data_root=cfg.SBD_TRAIN_PATH,
         data_list=cfg.SBD_TRAIN_LIST,
         mode="train",
@@ -116,21 +129,25 @@ def train(model, cfg, model_cfg):
         samples_scores_gamma=1.25,
     )
 
-    valset = iFSS_SBD_Dataset(
-        data_root=cfg.SBD_TRAIN_PATH,
-        data_list=cfg.SBD_VAL_LIST,
-        mode="val",
-        split=0,
-        use_coco=False,
-        use_split_coco=False,
-        augmentator=val_augmentator,
-        min_object_area=80,
-        keep_background_prob=0.01,
-        points_sampler=points_sampler,
-        samples_scores_gamma=1.25,
-    )
+    if cfg.debug == "one_batch_overfit":
+        valset = trainset
+    else:
+        valset = iFSS_SBD_Dataset(
+            cfg,
+            data_root=cfg.SBD_TRAIN_PATH,
+            data_list=cfg.SBD_VAL_LIST,
+            mode="val",
+            split=0,
+            use_coco=False,
+            use_split_coco=False,
+            augmentator=val_augmentator,
+            min_object_area=80,
+            keep_background_prob=0.01,
+            points_sampler=points_sampler,
+            samples_scores_gamma=1.25,
+        )
 
-    optimizer_params = {"lr": 5e-4, "betas": (0.9, 0.999), "eps": 1e-8}
+    optimizer_params = {"lr":5e-3, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[200, 215], gamma=0.1

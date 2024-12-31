@@ -106,6 +106,13 @@ def parse_args():
 
     # ===== iFSS specific =====
     parser.add_argument(
+        "--debug",
+        type=str,
+        default=None,
+        help="[one_batch_overfit] does what it says for the same batch over train and val"
+    )
+
+    parser.add_argument(
         "--pretrain-mode",
         action="store_true",
         default=False,

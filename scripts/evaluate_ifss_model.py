@@ -333,7 +333,7 @@ def save_results(
                 if click_id <= min_num_clicks
             ]
         )
-        table_row += "; " + miou_str
+        table_row += "\n; " + miou_str
     else:
         target_iou_int = int(args.target_iou * 100)
         if target_iou_int not in [80, 85, 90]:
@@ -347,7 +347,7 @@ def save_results(
 
     if print_header:
         print(header)
-    print("\n", table_row)
+    print(table_row)
 
     if print_header:
         print(s_header)

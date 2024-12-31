@@ -67,8 +67,8 @@ def evaluate_sample(
     """
 
     clicker = Clicker(gt_mask=support_gt_mask)
-    query_pred_mask = np.zeros_like(query_gt_mask)
-    support_pred_mask = np.zeros_like(support_gt_mask)
+    query_pred_probs = np.zeros_like(query_gt_mask)
+    support_pred_mask = support_pred_probs = np.zeros_like(support_gt_mask)
     ious_list = []
 
     with torch.no_grad():
@@ -77,7 +77,7 @@ def evaluate_sample(
         for click_indx in range(max_clicks):
             clicker.make_next_click(support_pred_mask)
             query_pred_probs, support_pred_probs = predictor.get_prediction(
-                clicker, query_pred_mask, support_pred_mask)
+                clicker, query_pred_probs, support_pred_probs)
             query_pred_mask = query_pred_probs > pred_thr
             support_pred_mask = support_pred_probs > pred_thr
 
