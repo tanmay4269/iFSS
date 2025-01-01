@@ -41,11 +41,12 @@
                 "--batch-size=2", 
                 "--exp-name=debug",
                 "--pretrain-mode",
-                "--debug=one_batch_overfit",
+                "--debug=True"
             ],
             "env": {
                 "DEBUG":"1",
-            }
+            },
+            "justMyCode": false
         },
         {
             "name": "ifss-train-coco",

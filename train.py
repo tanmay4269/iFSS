@@ -109,7 +109,10 @@ def parse_args():
         "--debug",
         type=str,
         default=None,
-        help="[one_batch_overfit] does what it says for the same batch over train and val"
+        help="""
+            [one_batch_overfit] does what it says for the same batch over train and val. 
+            [any thing but None] for storing weigths and stuff at a different place coz tb logging gets interupted.
+        """
     )
 
     parser.add_argument(
