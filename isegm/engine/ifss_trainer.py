@@ -9,10 +9,12 @@ import cv2
 import torch
 import numpy as np
 from tqdm import tqdm
+
+from albumentations import Normalize
 from torch.utils.data import DataLoader
 
 from isegm.utils.log import logger, TqdmToLogger, SummaryWriterAvg
-from isegm.utils.vis import draw_probmap, draw_points
+from isegm.utils.vis import draw_probmap, draw_points, UndoNormalize
 from isegm.utils.misc import save_checkpoint
 from isegm.utils.serialization import get_config_repr
 from isegm.utils.distributed import get_dp_wrapper, get_sampler, reduce_loss_dict
@@ -100,6 +102,17 @@ class iFSSTrainer(object):
             pin_memory=True,
             num_workers=cfg.workers,
         )
+
+        # For visualizations
+        self.undo_normalize = None
+        for t in self.trainset.augmentator.transforms:
+            if not isinstance(t, Normalize):
+                continue
+            self.undo_normalize = UndoNormalize(
+                mean=(0.485, 0.456, 0.406), 
+                std=(0.229, 0.224, 0.225), 
+                max_pixel_value=1.0, 
+            )
 
         self.optim = get_optimizer(model, optimizer, optimizer_params)
         model = self._load_weights(model)
@@ -462,20 +475,20 @@ class iFSSTrainer(object):
                 [cv2.IMWRITE_JPEG_QUALITY, 85],
             )
 
+        for k, v in splitted_batch_data.items():
+            splitted_batch_data[k] = v.detach().cpu().numpy()
+
         s_images = splitted_batch_data["s_images"]
         s_points = splitted_batch_data["s_points"]
-        s_instance_masks = splitted_batch_data["s_instances"]
+        s_gt_instance_masks = splitted_batch_data["s_instances"]
 
         q_images = splitted_batch_data["q_images"]
-        q_masks = splitted_batch_data["q_masks"]
+        q_gt_masks = splitted_batch_data["q_masks"]
 
-        s_gt_instance_masks = s_instance_masks.cpu().numpy()
         predicted_s_instance_masks = (
             torch.sigmoid(outputs["s_instances"]).detach().cpu().numpy()
         )
-        s_points = s_points.detach().cpu().numpy()
 
-        q_gt_masks = q_masks.cpu().numpy()
         predicted_q_masks = torch.sigmoid(outputs["q_masks"]).detach().cpu().numpy()
 
         s_image_blob, s_points = s_images[0], s_points[0]
@@ -486,18 +499,22 @@ class iFSSTrainer(object):
         q_gt_mask = np.squeeze(q_gt_masks[0], axis=0)
         q_predicted_mask = np.squeeze(predicted_q_masks[0], axis=0)
 
-        s_image = s_image_blob.cpu().numpy() * 255
+        if self.undo_normalize is not None:
+            s_image_blob = self.undo_normalize.apply(s_image_blob)
+            q_image_blob = self.undo_normalize.apply(q_image_blob)
+
+        s_image = s_image_blob * 255
         s_image = s_image.transpose((1, 2, 0))
 
-        q_image = q_image_blob.cpu().numpy() * 255
+        q_image = q_image_blob * 255
         q_image = q_image.transpose((1, 2, 0))
 
         s_image_with_points = draw_points(
             s_image, s_points[: self.max_interactive_points], (0, 255, 0)
-        )
+        ) # +ve clicks
         s_image_with_points = draw_points(
             s_image_with_points, s_points[self.max_interactive_points :], (0, 0, 255)
-        )
+        ) # -ve clicks
 
         s_gt_mask[s_gt_mask < 0] = 0.25
         s_gt_mask = draw_probmap(s_gt_mask)

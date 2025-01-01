@@ -65,56 +65,39 @@ def train(model, cfg, model_cfg):
     loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.q_mask_aux_loss_weight = 0.4
 
-    if cfg.debug == 'one_batch_overfit':
-        train_augmentator = Compose(
-            [
-                UniformRandomResize(scale_range=(0.75, 1.25)),
-                Flip(),
-                RandomRotate90(),
-                ShiftScaleRotate(
-                    shift_limit=0.03,
-                    scale_limit=0,
-                    rotate_limit=(-3, 3),
-                    border_mode=0,
-                    p=0.75,
-                ),
-                PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-                RandomCrop(*crop_size),
-                # RandomBrightnessContrast(
-                #     brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.25
-                # ),
-                # RGBShift(r_shift_limit=5, g_shift_limit=5, b_shift_limit=5, p=0.25),
-            ],
-            p=1.0,
-        )
-    else:
-        train_augmentator = Compose(
-            [
-                UniformRandomResize(scale_range=(0.75, 1.25)),
-                Flip(),
-                RandomRotate90(),
-                ShiftScaleRotate(
-                    shift_limit=0.03,
-                    scale_limit=0,
-                    rotate_limit=(-3, 3),
-                    border_mode=0,
-                    p=0.75,
-                ),
-                PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-                RandomCrop(*crop_size),
-                RandomBrightnessContrast(
-                    brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.25
-                ),
-                RGBShift(r_shift_limit=5, g_shift_limit=5, b_shift_limit=5, p=0.25),
-            ],
-            p=1.0,
-        )
+    train_augmentator = Compose(
+        [
+            UniformRandomResize(scale_range=(0.75, 1.25)),
+            Flip(),
+            RandomRotate90(),
+            ShiftScaleRotate(border_mode=0, p=0.75),
+            PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
+            RandomCrop(*crop_size),
+            RandomBrightnessContrast(),
+            RGBShift(
+                r_shift_limit=(-10, 10),
+                g_shift_limit=(-10, 10),
+                b_shift_limit=(-10, 10),
+            ),
+            # HueSaturationValue(p=0.25),
+            # GaussianBlur(p=0.25),
+            Normalize(
+                mean=(0.485, 0.456, 0.406), 
+                std=(0.229, 0.224, 0.225), 
+                max_pixel_value=1.0),
+        ], 
+        p=1.0
+    )
 
     val_augmentator = Compose(
         [
             UniformRandomResize(scale_range=(0.75, 1.25)),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
             RandomCrop(*crop_size),
+            Normalize(
+                mean=(0.485, 0.456, 0.406), 
+                std=(0.229, 0.224, 0.225), 
+                max_pixel_value=1.0),
         ],
         p=1.0,
     )
@@ -138,7 +121,6 @@ def train(model, cfg, model_cfg):
         min_object_area=80,
         keep_background_prob=0.01,
         points_sampler=points_sampler,
-        samples_scores_gamma=1.25,
     )
 
     if cfg.debug == "one_batch_overfit":
@@ -156,13 +138,12 @@ def train(model, cfg, model_cfg):
             min_object_area=80,
             keep_background_prob=0.01,
             points_sampler=points_sampler,
-            samples_scores_gamma=1.25,
         )
 
     optimizer_params = {"lr":5e-4, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
-        torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.1
+        torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5
     )
     trainer = iFSSTrainer(
         model,
@@ -175,7 +156,7 @@ def train(model, cfg, model_cfg):
         optimizer_params=optimizer_params,
         lr_scheduler=lr_scheduler,
         checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
-        image_dump_interval=100,  # FIXME: units?
+        image_dump_interval=1,  # FIXME: units?
         metrics=[
             AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances"),
             AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks"),
