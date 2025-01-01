@@ -9,7 +9,7 @@ COCO_MVAL_PATH: "./data/COCO_MVal"
 
 # Train datasets
 SBD_TRAIN_PATH: "./data/VOCdevkit/VOC2012"
-SBD_JSON_DUMP: "./data/VOCdevkit/json_dump"
+SBD_CACHE: "./data/VOCdevkit/cache"
 
 # FSS
 SBD_VAL_PATH: "./data/VOCdevkit/VOC2012"  # I have no clue why I'm supposed to reuse the train path 

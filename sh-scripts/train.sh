@@ -7,6 +7,14 @@ export DEBUG=1
 #     --batch-size=2 \
 #     --exp-name=ifss-training
 
+# python train.py \
+#     models/ifss_models/hrnet18_sbd_ifss.py \
+#     --gpus=0 \
+#     --workers=8 \
+#     --batch-size=22 \
+#     --exp-name=experiment_2 \
+#     --pretrain-mode \
+
 python train.py \
     models/ifss_models/hrnet18_sbd_ifss.py \
     --gpus=0 \
@@ -14,6 +22,9 @@ python train.py \
     --batch-size=22 \
     --exp-name=experiment_2 \
     --pretrain-mode \
+    --resume-exp=016_experiment_2 \
+    --resume-prefix=060 \
+    --start-epoch=60
 
 # python train.py \
 #     models/ifss_models/hrnet18_sbd_ifss.py \

@@ -3,10 +3,12 @@ import argparse
 import importlib.util
 
 import torch
+import numpy as np
 from isegm.utils.exp import init_experiment
 
 
 def main():
+    seed_everything(42)
     args = parse_args()
     if args.temp_model_path:
         model_script = load_module(args.temp_model_path)
@@ -18,9 +20,7 @@ def main():
     args.distributed = "WORLD_SIZE" in os.environ
     cfg = init_experiment(args, model_base_name)
 
-    torch.backends.cudnn.benchmark = True
     torch.multiprocessing.set_sharing_strategy("file_system")
-
     model_script.main(cfg)
 
 
@@ -129,6 +129,12 @@ def load_module(script_path):
 
     return model_script
 
+def seed_everything(seed=42):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
     main()

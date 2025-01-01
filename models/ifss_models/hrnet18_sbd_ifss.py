@@ -14,8 +14,6 @@ from isegm.data.transforms import *
 from isegm.data.points_sampler import MultiPointSampler
 from isegm.data.datasets.fss_sbd import iFSS_SBD_Dataset
 
-from isegm.utils.log import logger
-
 MODEL_NAME = "sbd_hrnet18"
 
 
@@ -38,6 +36,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
+        norm_layer=nn.BatchNorm2d
     )
 
     model.to(cfg.device)
@@ -103,10 +102,10 @@ def train(model, cfg, model_cfg):
                 ),
                 PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
                 RandomCrop(*crop_size),
-                # RandomBrightnessContrast(
-                #     brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.25
-                # ),
-                # RGBShift(r_shift_limit=5, g_shift_limit=5, b_shift_limit=5, p=0.25),
+                RandomBrightnessContrast(
+                    brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.25
+                ),
+                RGBShift(r_shift_limit=5, g_shift_limit=5, b_shift_limit=5, p=0.25),
             ],
             p=1.0,
         )
@@ -160,10 +159,10 @@ def train(model, cfg, model_cfg):
             samples_scores_gamma=1.25,
         )
 
-    optimizer_params = {"lr":5e-3, "betas": (0.9, 0.999), "eps": 1e-8}
+    optimizer_params = {"lr":5e-4, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
-        torch.optim.lr_scheduler.MultiStepLR, milestones=[200, 215], gamma=0.1
+        torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.1
     )
     trainer = iFSSTrainer(
         model,

@@ -43,8 +43,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         self._buggy_objects = dict()
         self._buggy_mask_thresh = buggy_mask_thresh
 
-        # TODO: write this better, this implementation 
-        # is probably not standard
+        # TODO: write this better, this implementation is probably not standard
         self.dataset_samples, self.sub_class_file_list = \
             self.make_dataset(
                 mode,
@@ -59,8 +58,32 @@ class iFSS_SBD_Dataset(iFSSDataset):
             self.dataset_samples = self.dataset_samples[:cfg.batch_size]
             for k, v in self.sub_class_file_list.items():
                 self.sub_class_file_list[k] = v[:cfg.batch_size]
+
+        # For consistent validation
+        if mode != 'val':
+            return
         
+        val_samples_filename = f"val_samples_split{split}_{np.random.randint(10, 100)}.pt"
+        val_samples_path = os.path.join(cfg.SBD_CACHE, val_samples_filename)
+        if val_samples_filename in os.listdir(cfg.SBD_CACHE):
+            print("Loading val samples from cache...", end="")
+            self.val_samples = torch.load(val_samples_path)
+            print("Done!")
+        else:
+            print("Saving val samples...")
+            self.val_samples = []
+            for i in tqdm(range(len(self.dataset_samples)), desc="Processing samples"):
+                self.val_samples.append(self.get_sample(i))
+            print("Saving samples to cache...", end="")
+            torch.save(self.val_samples, val_samples_path)
+            print("Done!")
+        self.mode = 'val-loaded'
+
+
     def get_sample(self, index):
+        if self.mode == 'val-loaded':
+            return self.val_samples[index]
+        
         image_path, label_path = self.dataset_samples[index]
         image, label = self.get_raw_image_label(image_path, label_path) 
 
@@ -77,7 +100,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         assert len(label_class) > 0
 
         # making a new query label
-        class_chosen = random.choice(label_class)
+        class_chosen = np.random.choice(label_class)
         label = self.choose_label(label, class_chosen)
         
         # selecting support pair
@@ -85,7 +108,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         num_files = len(file_class_chosen)
 
         while True:
-            support_idx = random.randint(0, num_files - 1)
+            support_idx = np.random.randint(0, num_files - 1)
             support_image_path, support_label_path = file_class_chosen[support_idx]
             
             if (
@@ -207,9 +230,9 @@ class iFSS_SBD_Dataset(iFSSDataset):
             raise (RuntimeError("Image list file do not exist: " + data_list + "\n"))
 
         dump_file_name = f"split{split}_{mode}.json"
-        if dump_file_name in os.listdir(self.cfg.SBD_JSON_DUMP):
+        if dump_file_name in os.listdir(self.cfg.SBD_CACHE):
             print("Loading from saved dump")
-            with open(os.path.join(self.cfg.SBD_JSON_DUMP, dump_file_name), "r") as file:
+            with open(os.path.join(self.cfg.SBD_CACHE, dump_file_name), "r") as file:
                 loaded_data = json.load(file)
 
             sub_class_file_list = defaultdict(list)
@@ -266,7 +289,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         print("Done!")
 
         print(f"Dumping to {dump_file_name}...", end="")
-        with open(os.path.join(self.cfg.SBD_JSON_DUMP, dump_file_name), "w") as file:
+        with open(os.path.join(self.cfg.SBD_CACHE, dump_file_name), "w") as file:
             data = (image_label_list, sub_class_file_list)
             json.dump(data, file)
         print("Done!")

@@ -1,3 +1,5 @@
+from easydict import EasyDict as edict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,13 +16,16 @@ class CustomHRNet(HighResolutionNet):
         - Added `query_encoder` method that fuses support prototypes
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, is_query_net=False, **kwargs):
         super().__init__(**kwargs)
 
-        self.conv_0 = nn.Conv2d(256 + 18, 256, 1)
-        self.conv_1 = nn.Conv2d(36 + 36, 36, 1)
-        self.conv_2 = nn.Conv2d(72 + 72, 72, 1)
-        self.conv_3 = nn.Conv2d(144 + 144, 144, 1)
+        if is_query_net:
+            self.conv1x1 = nn.ModuleList([
+                nn.Conv2d(256 + 18, 256, 1),
+                nn.Conv2d(36 + 36, 36, 1),
+                nn.Conv2d(72 + 72, 72, 1),
+                nn.Conv2d(144 + 144, 144, 1),
+            ])
 
     def forward(self, x, additional_features=None):
         x, feats_list = self.encoder(x, additional_features)
@@ -71,7 +76,7 @@ class CustomHRNet(HighResolutionNet):
         _, _, H, W = x.shape
         prototype = prototypes[0].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((x, prototype), dim=1)
-        x = self.conv_0(x)
+        x = self.conv1x1[0](x)
 
         x_list = []
         for i in range(self.stage2_num_branches):
@@ -86,7 +91,7 @@ class CustomHRNet(HighResolutionNet):
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[1].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
-        y_list[-1] = self.conv_1(x)
+        y_list[-1] = self.conv1x1[1](x)
 
         x_list = []
         for i in range(self.stage3_num_branches):
@@ -105,7 +110,7 @@ class CustomHRNet(HighResolutionNet):
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[2].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
-        y_list[-1] = self.conv_2(x)
+        y_list[-1] = self.conv1x1[2](x)
 
         x_list = []
         for i in range(self.stage4_num_branches):
@@ -125,7 +130,7 @@ class CustomHRNet(HighResolutionNet):
         _, _, H, W = y_list[-1].shape
         prototype = prototypes[3].unsqueeze(2).unsqueeze(3).repeat(1, 1, H, W)
         x = torch.cat((y_list[-1], prototype), dim=1)
-        y_list[-1] = self.conv_3(x)
+        y_list[-1] = self.conv1x1[3](x)
 
         out, _ = self.aggregate_hrnet_features(y_list)
 
@@ -139,7 +144,16 @@ class iFSS_HRNetModel(iFSSModel):
         width=48,
         ocr_width=256,
         small=False,
-        backbone_lr_mult=0.1,
+        lr_mult=edict(
+            support = edict(
+                default = 1.0,
+                backbone = 0.1
+            ),
+            query = edict(
+                default = 1.0,
+                backbone = 0.1
+            )
+        ),
         norm_layer=nn.BatchNorm2d,
         **kwargs
     ):
@@ -154,11 +168,18 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
+        self.support_net.apply(LRMult(lr_mult.support.backbone))
+        if ocr_width > 0:
+            lr = lr_mult.support.default
+            self.support_net.ocr_distri_head.apply(LRMult(lr))
+            self.support_net.ocr_gather_head.apply(LRMult(lr))
+            self.support_net.conv3x3_ocr.apply(LRMult(lr))
+
         # ===== Query Branch =====
         use_leaky_relu = True
         query_input_layers = [
             nn.Conv2d(in_channels=3 + 1, out_channels=6 + 1, kernel_size=1),
-            nn.BatchNorm2d(6 + 1),
+            norm_layer(6 + 1),
             (
                 nn.LeakyReLU(negative_slope=0.2)
                 if use_leaky_relu
@@ -170,6 +191,7 @@ class iFSS_HRNetModel(iFSSModel):
         self.query_input = nn.Sequential(*query_input_layers)
 
         self.query_net = CustomHRNet(
+            is_query_net=True,
             width=width,
             ocr_width=ocr_width,
             small=small,
@@ -177,13 +199,14 @@ class iFSS_HRNetModel(iFSSModel):
             norm_layer=norm_layer,
         )
 
-        # Applying LRMult
-        for net in [self.support_net, self.query_net]:
-            net.apply(LRMult(backbone_lr_mult))
-            if ocr_width > 0:
-                net.ocr_distri_head.apply(LRMult(1.0))
-                net.ocr_gather_head.apply(LRMult(1.0))
-                net.conv3x3_ocr.apply(LRMult(1.0))
+        self.query_net.apply(LRMult(lr_mult.query.backbone))
+        lr = lr_mult.query.default
+        self.query_net.conv1x1.apply(LRMult(lr))
+        if ocr_width > 0:
+            self.query_net.ocr_distri_head.apply(LRMult(lr))
+            self.query_net.ocr_gather_head.apply(LRMult(lr))
+            self.query_net.conv3x3_ocr.apply(LRMult(lr))
+
 
     def support_forward(
         self, image, s_gt=None, coord_features=None, filter_threshold=0.5
