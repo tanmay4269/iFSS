@@ -7,12 +7,11 @@ from pathlib import Path
 from collections import defaultdict
 
 import cv2
+import torch 
 import numpy as np
 from PIL import Image
 from scipy.io import loadmat
 
-import torch 
-from torch.utils.data import Dataset
 
 from isegm.utils.misc import get_bbox_from_mask, get_labels_with_sizes
 from isegm.data.ifss_base import iFSSDataset
