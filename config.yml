@@ -1,26 +1,13 @@
 INTERACTIVE_MODELS_PATH: "./weights"
 EXPS_PATH: "./experiments"
 
-# Evaluation datasets
-GRABCUT_PATH: "./data/GrabCut"
-BERKELEY_PATH: "./data/Berkeley"
-DAVIS_PATH: "./data/DAVIS"
-COCO_MVAL_PATH: "./data/COCO_MVal"
-
 # Train datasets
 SBD_TRAIN_PATH: "./data/VOCdevkit/VOC2012"
 SBD_CACHE: "./data/VOCdevkit/cache"
 
-# FSS
 SBD_VAL_PATH: "./data/VOCdevkit/VOC2012"  # I have no clue why I'm supposed to reuse the train path 
 SBD_TRAIN_LIST: "./data/lists/pascal/sbd_data.txt"
 SBD_VAL_LIST: "./data/lists/pascal/val.txt"
-
-COCO_PATH: "./data/coco2017"
-LVIS_PATH: "./data/LVIS"
-OPENIMAGES_PATH: "./data/OpenImages"
-PASCALVOC_PATH: "./data/PascalVOC"
-ADE20K_PATH: "./data/ADE20K"
 
 # You can download the weights for HRNet from the repository:
 # https://github.com/HRNet/HRNet-Image-Classification
