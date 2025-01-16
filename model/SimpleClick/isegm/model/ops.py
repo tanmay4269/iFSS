@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 import numpy as np
-import isegm.model.initializer as initializer
+from . import initializer
 
 
 def select_activation_function(activation):

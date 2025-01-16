@@ -1,6 +1,6 @@
 import math
 import torch.nn as nn
-from isegm.utils.serialization import serialize
+from ..utils.serialization import serialize
 from .is_model import ISModel
 from .modeling.models_vit import VisionTransformer, PatchEmbed
 from .modeling.swin_transformer import SwinTransfomerSegHead
