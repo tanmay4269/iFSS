@@ -10,6 +10,10 @@ import random
 import time
 from tqdm import tqdm
 
+from scipy.io import loadmat
+import json
+import os
+
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm']
 
 
@@ -39,11 +43,16 @@ def make_dataset(split=0, data_root=None, data_list=None, sub_list=None):
     for l_idx in tqdm(range(len(list_read))):
         line = list_read[l_idx]
         line = line.strip()
-        line_split = line.split(' ')
-        image_name = os.path.join(data_root, line_split[0])
-        label_name = os.path.join(data_root, line_split[1])
+        # line_split = line.split(' ')
+        # image_name = os.path.join(data_root, line_split[0])
+        # label_name = os.path.join(data_root, line_split[1])
+        filename = line
+        image_name = os.path.join(data_root, 'img', filename) + '.jpg'
+        label_name = os.path.join(data_root, 'cls', filename) + '.mat'
         item = (image_name, label_name)
-        label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+        # label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+        label = loadmat(label_name)
+        label = np.array(label["GTcls"][0]["Segmentation"][0], dtype=np.uint8)
         label_class = np.unique(label).tolist()
 
         if 0 in label_class:
@@ -81,6 +90,7 @@ class SemData(Dataset):
         self.split = split  
         self.shot = shot
         self.data_root = data_root   
+        self.transform = transform
 
         if not use_coco:
             self.class_list = list(range(1, 21)) #[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
@@ -132,17 +142,36 @@ class SemData(Dataset):
         print('sub_list: ', self.sub_list)
         print('sub_val_list: ', self.sub_val_list)    
 
+        cache_dir = os.path.join(os.getcwd(), 'cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        cache_file = os.path.join(cache_dir, f'dataset_split_{split}.json')
+
+        if os.path.isfile(cache_file):
+            with open(cache_file, 'r') as f:
+                cache = json.load(f)
+                self.data_list = [tuple(item) for item in cache['data_list']]
+                self.sub_class_file_list = {int(k): v for k, v in cache['sub_class_file_list'].items()}
+            return 
+        
         if self.mode == 'train':
             self.data_list, self.sub_class_file_list = make_dataset(split, data_root, data_list, self.sub_list)
-            assert len(self.sub_class_file_list.keys()) == len(self.sub_list)
         elif self.mode == 'val':
             self.data_list, self.sub_class_file_list = make_dataset(split, data_root, data_list, self.sub_val_list)
-            assert len(self.sub_class_file_list.keys()) == len(self.sub_val_list) 
-        self.transform = transform
+        cache = {
+            'data_list': self.data_list,
+            'sub_class_file_list': self.sub_class_file_list
+        }
+        with open(cache_file, 'w') as f:
+            json.dump(cache, f)
 
 
     def __len__(self):
         return len(self.data_list)
+    
+    def read_label(self, label_path):
+        label = loadmat(label_path)
+        label = np.array(label["GTcls"][0]["Segmentation"][0], dtype=np.uint8)
+        return label
 
     def __getitem__(self, index):
         label_class = []
@@ -150,7 +179,8 @@ class SemData(Dataset):
         image = cv2.imread(image_path, cv2.IMREAD_COLOR) 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  
         image = np.float32(image)
-        label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)  
+        # label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)  
+        label = self.read_label(label_path)
 
         if image.shape[0] != label.shape[0] or image.shape[1] != label.shape[1]:
             raise (RuntimeError("Query Image & label shape mismatch: " + image_path + " " + label_path + "\n"))          
@@ -211,7 +241,9 @@ class SemData(Dataset):
             support_image = cv2.imread(support_image_path, cv2.IMREAD_COLOR)      
             support_image = cv2.cvtColor(support_image, cv2.COLOR_BGR2RGB)
             support_image = np.float32(support_image)
-            support_label = cv2.imread(support_label_path, cv2.IMREAD_GRAYSCALE)
+            # support_label = cv2.imread(support_label_path, cv2.IMREAD_GRAYSCALE)
+            support_label = self.read_label(support_label_path)
+            
             target_pix = np.where(support_label == class_chosen)
             ignore_pix = np.where(support_label == 255)
             support_label[:,:] = 0
