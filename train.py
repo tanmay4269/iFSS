@@ -163,7 +163,7 @@ def main_worker(gpu, ngpus_per_node, argss):
     # elif args.model_name == "FewShotViTModel":
     else:
         backbone_params = dict(
-            img_size=(224, 224),
+            img_size=(448, 448),
             patch_size=(16, 16),
             in_chans=3,
             embed_dim=768,
@@ -174,20 +174,47 @@ def main_worker(gpu, ngpus_per_node, argss):
         )
 
         neck_params = dict(
-            in_dim=768,
-            out_dims=[256, 256, 256, 256],  # Could make this 128 if head is too big
+            in_dim = 768,
+            out_dims = [128, 256, 512, 1024],
         )
 
         head_params = dict(
-            # in_channels=[256, 256, 256, 256],
-            in_channels=[512, 512, 512, 512],
+            in_channels=[2 * 128, 2 * 256, 2 * 512, 2 * 1024],
             in_index=[0, 1, 2, 3],
             channels=256,
             dropout_ratio=0.1,
             num_classes=2,
-            loss_decode=None,  # nn.CrossEntropyLoss()
+            loss_decode=None,
             align_corners=False,
         )
+        
+        # backbone_params = dict(
+        #     img_size=(224, 224),
+        #     patch_size=(16, 16),
+        #     in_chans=3,
+        #     embed_dim=768,
+        #     depth=12,
+        #     num_heads=12,
+        #     mlp_ratio=4,
+        #     qkv_bias=True,
+        # )
+
+        # neck_params = dict(
+        #     in_dim=768,
+        #     out_dims=[256, 256, 256, 256],  # Could make this 128 if head is too big
+        # )
+
+        # head_params = dict(
+        #     # in_channels=[256, 256, 256, 256],
+        #     in_channels=[512, 512, 512, 512],
+        #     in_index=[0, 1, 2, 3],
+        #     channels=256,
+        #     dropout_ratio=0.1,
+        #     num_classes=2,
+        #     loss_decode=None,  # nn.CrossEntropyLoss()
+        #     align_corners=False,
+        # )
+        
         model = FewShotViTModel(
             backbone_params=backbone_params,
             neck_params=neck_params,

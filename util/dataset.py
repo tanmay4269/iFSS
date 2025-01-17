@@ -144,7 +144,7 @@ class SemData(Dataset):
 
         cache_dir = os.path.join(os.getcwd(), 'cache')
         os.makedirs(cache_dir, exist_ok=True)
-        cache_file = os.path.join(cache_dir, f'dataset_split_{split}.json')
+        cache_file = os.path.join(cache_dir, f'dataset_split={split}_mode={mode}.json')
 
         if os.path.isfile(cache_file):
             with open(cache_file, 'r') as f:
