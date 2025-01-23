@@ -174,6 +174,8 @@ class SemData(Dataset):
         return label
 
     def __getitem__(self, index):
+        # random.seed(42)  # Debugging
+        
         label_class = []
         image_path, label_path = self.data_list[index]
         image = cv2.imread(image_path, cv2.IMREAD_COLOR) 
@@ -199,7 +201,6 @@ class SemData(Dataset):
                     new_label_class.append(c)
         label_class = new_label_class    
         assert len(label_class) > 0
-
 
         class_chosen = label_class[random.randint(1,len(label_class))-1]
         class_chosen = class_chosen
@@ -273,5 +274,6 @@ class SemData(Dataset):
         if self.mode == 'train':
             return image, label, s_x, s_y, subcls_list
         else:
-            return image, label, s_x, s_y, subcls_list, raw_label
+            return image, label, s_x, s_y, subcls_list
+            # return image, label, s_x, s_y, subcls_list, raw_label  # use when args.ori_resize is True
 

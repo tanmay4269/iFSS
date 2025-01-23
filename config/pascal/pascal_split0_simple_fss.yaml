@@ -1,7 +1,7 @@
 DATA:
-  data_root: ./data/SBD/dataset
-  train_list: ./data/SBD/dataset/train.txt
-  val_list: ./data/SBD/dataset/val.txt
+  data_root: ./data/SBD
+  train_list: ./data/SBD/train.txt
+  val_list: ./data/SBD/val.txt
   classes: 2
 
 
@@ -21,18 +21,19 @@ TRAIN:
   aux_weight: 1.0
   train_gpu: [0]
   workers: 8  # data loader workers
-  batch_size: 16  # batch size for training
-  batch_size_val: 1  # batch size for validation
-  base_lr: 0.01  # 0.0025
+  batch_size: 64  # batch size for training
+  batch_size_val: 50  # batch size for validation
+  base_lr: 0.04  # 0.0025
   epochs: 200
   start_epoch: 0
-  power: 0.9 # 0 means no decay
+  power: 0 # 0 means no decay
   momentum: 0.9
   weight_decay: 0.0001
   manual_seed: 321
   print_freq: 5
   save_freq: 20
-  save_path: exp/pascal/split0_simple_fss/model
+  # save_path: exp/debug/split0_simple_fss/09-prep
+  save_path: exp/simple_fss/split0_simple_fss/01
   weight:  # load weight for fine-tuning or testing
   resume:  # path to latest checkpoint (default: none)
   evaluate: True
@@ -45,7 +46,7 @@ TRAIN:
   use_coco: False
   use_split_coco: False
   resized_val: True
-  ori_resize: True  # use original label for evaluation
+  ori_resize: False  # True => use original label for evaluation
 
 ## deprecated multi-processing training
 Distributed:

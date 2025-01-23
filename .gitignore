@@ -3,3 +3,5 @@
 data/SBD
 exp
 weights
+initmodel
+logs

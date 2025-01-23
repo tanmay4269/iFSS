@@ -33,6 +33,7 @@ def get_parser():
     parser.add_argument(
         "--config",
         type=str,
+        # default="config/pascal/pascal_split0_resnet50.yaml",
         default="config/pascal/pascal_split0_simple_fss.yaml",
         help="config file",
     )
@@ -46,6 +47,7 @@ def get_parser():
         "--model_name",
         type=str,
         default="FewShotViTModel",
+        # default="PFENet",
         choices=["PFENet", "FewShotViTModel"],
         help="model name",
     )
@@ -187,44 +189,15 @@ def main_worker(gpu, ngpus_per_node, argss):
             loss_decode=None,
             align_corners=False,
         )
-        
-        # backbone_params = dict(
-        #     img_size=(224, 224),
-        #     patch_size=(16, 16),
-        #     in_chans=3,
-        #     embed_dim=768,
-        #     depth=12,
-        #     num_heads=12,
-        #     mlp_ratio=4,
-        #     qkv_bias=True,
-        # )
 
-        # neck_params = dict(
-        #     in_dim=768,
-        #     out_dims=[256, 256, 256, 256],  # Could make this 128 if head is too big
-        # )
-
-        # head_params = dict(
-        #     # in_channels=[256, 256, 256, 256],
-        #     in_channels=[512, 512, 512, 512],
-        #     in_index=[0, 1, 2, 3],
-        #     channels=256,
-        #     dropout_ratio=0.1,
-        #     num_classes=2,
-        #     loss_decode=None,  # nn.CrossEntropyLoss()
-        #     align_corners=False,
-        # )
-        
         model = FewShotViTModel(
             backbone_params=backbone_params,
             neck_params=neck_params,
             head_params=head_params,
+            backbone_lr_mult=0.0,
         )
         optimizer = torch.optim.Adam(
-            [
-                {"params": model.neck.parameters()},
-                {"params": model.query_head.parameters()},
-            ],
+            model.parameters(),
             lr=args.base_lr,
             weight_decay=args.weight_decay,
         )
@@ -308,6 +281,7 @@ def main_worker(gpu, ngpus_per_node, argss):
         train_data,
         batch_size=args.batch_size,
         shuffle=(train_sampler is None),
+        # shuffle=False,
         num_workers=args.workers,
         pin_memory=True,
         sampler=train_sampler,
@@ -431,10 +405,17 @@ def train(train_loader, model, optimizer, epoch):
     vis_key = 0
     print("Warmup: {}".format(args.warmup))
     for i, (input, target, s_input, s_mask, subcls) in enumerate(train_loader):
+        # if i > 10:
+        #     break
         data_time.update(time.time() - end)
         current_iter = epoch * len(train_loader) + i + 1
         index_split = -1
-        if args.base_lr > 1e-6:
+        # if (epoch + 1) % 50 == 0:
+        # if (epoch + 1) > 50:
+        #     for index, param_group in enumerate(optimizer.param_groups):
+        #         param_group['lr'] *= 0.5
+                    
+        if args.base_lr > 1e-6 and False:
             poly_learning_rate(
                 optimizer,
                 args.base_lr,
@@ -594,7 +575,8 @@ def validate(val_loader, model, criterion):
     iter_num = 0
     total_time = 0
     for e in range(10):
-        for i, (input, target, s_input, s_mask, subcls, ori_label) in enumerate(
+        # for i, (input, target, s_input, s_mask, subcls, ori_label) in enumerate(
+        for i, (input, target, s_input, s_mask, subcls) in enumerate(
             val_loader
         ):
             if (iter_num - 1) * args.batch_size_val >= test_num:
@@ -603,19 +585,19 @@ def validate(val_loader, model, criterion):
             data_time.update(time.time() - end)
             input = input.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
-            ori_label = ori_label.cuda(non_blocking=True)
+            # ori_label = ori_label.cuda(non_blocking=True)
             start_time = time.time()
             output = model(s_x=s_input, s_y=s_mask, x=input, y=target)
             total_time = total_time + 1
             model_time.update(time.time() - start_time)
 
-            if args.ori_resize:
-                longerside = max(ori_label.size(1), ori_label.size(2))
-                backmask = (
-                    torch.ones(ori_label.size(0), longerside, longerside).cuda() * 255
-                )
-                backmask[0, : ori_label.size(1), : ori_label.size(2)] = ori_label
-                target = backmask.clone().long()
+            # if args.ori_resize:
+            #     longerside = max(ori_label.size(1), ori_label.size(2))
+            #     backmask = (
+            #         torch.ones(ori_label.size(0), longerside, longerside).cuda() * 255
+            #     )
+            #     backmask[0, : ori_label.size(1), : ori_label.size(2)] = ori_label
+            #     target = backmask.clone().long()
 
             output = F.interpolate(
                 output, size=target.size()[1:], mode="bilinear", align_corners=True
