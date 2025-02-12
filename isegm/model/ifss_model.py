@@ -135,10 +135,13 @@ class iFSSModel(nn.Module):
                 s_inputs.gt if pretraining_enabled else None, 
                 coord_features)
 
+        # For PFENet stuff:
+        helpers = s_outputs.pop("query_helpers", None)
+        helpers["q_gt"] = q_inputs.gt
         q_outputs = self.query_forward(
             q_inputs.image,
             q_inputs.prev_output,
-            s_outputs["prototypes"],
+            helpers,
         )
 
         s_outputs["instances"] = nn.functional.interpolate(

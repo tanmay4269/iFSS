@@ -1,7 +1,10 @@
 *.log
 
 *__pycache__*
-data/VOCdevkit
+data/SBD
+data/benchmark.tgz
+exp
+initmodel
 weights
 pretrained_models
 experiments

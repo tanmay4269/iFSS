@@ -8,6 +8,7 @@ import cv2
 import torch
 import numpy as np
 from PIL import Image
+from scipy.io import loadmat
 
 from isegm.utils.misc import get_bbox_from_mask, get_labels_with_sizes
 from isegm.data.ifss_base import iFSSDataset
@@ -30,6 +31,10 @@ class iFSS_SBD_Dataset(iFSSDataset):
         **kwargs,
     ):
         super(iFSS_SBD_Dataset, self).__init__(**kwargs)
+        
+        # FIXME: Find a better way of doing this
+        self.image_root = cfg.SBD_IMAGE_PATH
+        self.label_root = cfg.SBD_LABEL_PATH
 
         self.cfg = cfg
         self.mode = mode
@@ -63,18 +68,19 @@ class iFSS_SBD_Dataset(iFSSDataset):
             f"val_samples_split{split}_{np.random.randint(10, 100)}.pt"
         )
         val_samples_path = os.path.join(cfg.SBD_CACHE, val_samples_filename)
-        if val_samples_filename in os.listdir(cfg.SBD_CACHE):
+        if False and val_samples_filename in os.listdir(cfg.SBD_CACHE):
             print("Loading val samples from cache...", end="")
             self.val_samples = torch.load(val_samples_path)
             print("Done!")
         else:
-            print("Saving val samples...")
-            self.val_samples = []
-            for i in tqdm(range(len(self.dataset_samples)), desc="Processing samples"):
-                self.val_samples.append(self.get_sample(i))
-            print("Saving samples to cache...", end="")
-            torch.save(self.val_samples, val_samples_path)
-            print("Done!")
+            # print("Saving val samples...")
+            # self.val_samples = []
+            # for i in tqdm(range(len(self.dataset_samples)), desc="Processing samples"):
+            #     self.val_samples.append(self.get_sample(i))
+            # print("Saving samples to cache...", end="")
+            # torch.save(self.val_samples, val_samples_path)
+            # print("Done!")
+            ...
         self.mode = "val-loaded"
 
     def get_sample(self, index):
@@ -250,18 +256,24 @@ class iFSS_SBD_Dataset(iFSSDataset):
             for l_idx in tqdm(range(len(list_read))):
                 line_split = list_read[l_idx].strip().split()
 
-                image_name = os.path.join(data_root, line_split[0])
-                label_name = os.path.join(data_root, line_split[1])
+                # image_name = os.path.join(data_root, line_split[0])
+                # label_name = os.path.join(data_root, line_split[1])
+                
+                image_name = os.path.join(self.image_root, line_split[0]) + '.jpg'
+                label_name = os.path.join(self.label_root, line_split[0]) + '.mat'
 
                 item = (image_name, label_name)
 
                 if not os.path.isfile(label_name):
                     continue
 
-                if mode == "train":
-                    label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
-                elif mode == "val":
-                    label = np.array(Image.open(label_name))
+                # if mode == "train":
+                #     label = cv2.imread(label_name, cv2.IMREAD_GRAYSCALE)
+                # elif mode == "val":
+                #     label = np.array(Image.open(label_name))
+                
+                label = loadmat(label_name)
+                label = np.array(label["GTinst"][0]["Segmentation"][0], dtype=np.uint8)
 
                 label_class = np.unique(label).tolist()
                 label_class = list(set(label_class) - {0, 255})
@@ -288,7 +300,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         print(f"Dumping to {dump_file_name}...", end="")
         with open(os.path.join(self.cfg.SBD_CACHE, dump_file_name), "w") as file:
             data = (image_label_list, sub_class_file_list)
-            json.dump(data, file)
+            json.dump(data, file, indent=None)
         print("Done!")
 
         return image_label_list, sub_class_file_list
@@ -298,10 +310,13 @@ class iFSS_SBD_Dataset(iFSSDataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         image /= 255.0
 
-        if self.mode == "train":
-            label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
-        elif self.mode == "val":
-            label = np.array(Image.open(label_path))
+        # if self.mode == "train":
+        #     label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+        # elif self.mode == "val":
+        #     label = np.array(Image.open(label_path))
+            
+        label = loadmat(label_path)
+        label = np.array(label["GTinst"][0]["Segmentation"][0], dtype=np.uint8)
 
         assert (
             image.shape[0] == label.shape[0] and image.shape[1] == label.shape[1]

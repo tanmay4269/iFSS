@@ -8,7 +8,7 @@ from isegm.engine.ifss_trainer import iFSSTrainer
 from isegm.model import initializer
 from isegm.model.losses import *
 from isegm.model.metrics import AdaptiveIoU
-from isegm.model.ifss_hrnet_model import iFSS_HRNetModel
+from isegm.model.ifss_pfenet_model import PFENetModel
 
 from isegm.data.transforms import *
 from isegm.data.points_sampler import MultiPointSampler
@@ -27,34 +27,16 @@ def init_model(cfg):
     model_cfg.crop_size = (320, 480)
     model_cfg.num_max_points = 24
 
-    model = iFSS_HRNetModel(
-        width=18,
-        ocr_width=64,
-        with_aux_output=True,
-        use_leaky_relu=True,
+    model = PFENetModel(
+        with_aux_output=False,
         use_rgb_conv=False,
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        lr_mult=edict(
-            support = edict(
-                default = 1.0,
-                backbone = 0.1
-            ),
-            query = edict(
-                default = 0.75,
-                backbone = 0.75 * 0.1
-            )
-        ),
-        norm_layer=nn.BatchNorm2d
     )
 
     model.to(cfg.device)
     model.apply(initializer.XavierGluon(rnd_type="gaussian", magnitude=2.0))
-
-    # ! Temporary 
-    # for net in [model.support_net, model.query_net]:
-    #     net.load_pretrained_weights(cfg.IMAGENET_PRETRAINED_MODELS.HRNETV2_W18)
 
     return model, model_cfg
 
