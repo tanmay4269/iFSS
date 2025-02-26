@@ -24,7 +24,9 @@ def main(cfg):
 
 def init_model(cfg):
     model_cfg = edict()
-    model_cfg.crop_size = (320, 480)
+    # model_cfg.crop_size = (320, 480)
+    model_cfg.crop_size = (473, 473)
+    
     model_cfg.num_max_points = 24
 
     model = PFENetModel(
@@ -77,7 +79,8 @@ def train(model, cfg, model_cfg):
             Normalize(
                 mean=(0.485, 0.456, 0.406), 
                 std=(0.229, 0.224, 0.225), 
-                max_pixel_value=1.0),
+                max_pixel_value=1.0
+            ),
         ], 
         p=1.0
     )
