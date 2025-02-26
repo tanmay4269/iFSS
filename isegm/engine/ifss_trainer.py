@@ -410,29 +410,29 @@ class iFSSTrainer(object):
                 lambda: (outputs["s_instances"], batch_data["s_instances"]),
             )
 
-            loss = self.add_loss(
-                "s_instance_aux_loss",
-                loss,
-                losses_logging,
-                validation,
-                lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
-            )
+            # loss = self.add_loss(
+            #     "s_instance_aux_loss",
+            #     loss,
+            #     losses_logging,
+            #     validation,
+            #     lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
+            # )
 
             loss = self.add_loss(
                 "q_mask_loss",
                 loss,
                 losses_logging,
                 validation,
-                lambda: (outputs["q_masks"], batch_data["q_masks"]),
+                lambda: (outputs["q_masks"].float(), batch_data["q_masks"].float()),
             )
 
-            loss = self.add_loss(
-                "q_mask_aux_loss",
-                loss,
-                losses_logging,
-                validation,
-                lambda: (outputs["q_masks_aux"], batch_data["q_masks"]),
-            )
+            # loss = self.add_loss(
+            #     "q_mask_aux_loss",
+            #     loss,
+            #     losses_logging,
+            #     validation,
+            #     lambda: (outputs["q_masks_aux"], batch_data["q_masks"]),
+            # )
 
             if self.is_master:
                 with torch.no_grad():

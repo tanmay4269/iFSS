@@ -51,14 +51,14 @@ def train(model, cfg, model_cfg):
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.s_instance_loss_weight = 1.0
-    loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.s_instance_aux_loss_weight = 0.4
+    # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
+    # loss_cfg.s_instance_aux_loss_weight = 0.4
 
     # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.q_mask_loss_weight = 1.0
-    loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.q_mask_aux_loss_weight = 0.4
+    # loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
+    # loss_cfg.q_mask_aux_loss_weight = 0.4
 
     train_augmentator = Compose(
         [

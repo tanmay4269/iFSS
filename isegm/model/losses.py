@@ -5,6 +5,12 @@ import torch.nn.functional as F
 
 from isegm.utils import misc
 
+def ensure_tensor_with_grad(tensor):
+    """Ensure the tensor has requires_grad=True if it's a floating-point tensor"""
+    if isinstance(tensor, torch.Tensor):
+        if tensor.is_floating_point() and not tensor.requires_grad:
+            tensor = tensor.detach().clone().requires_grad_(True)
+    return tensor
 
 class NormalizedFocalLossSigmoid(nn.Module):
     def __init__(self, axis=-1, alpha=0.25, gamma=2, max_mult=-1, eps=1e-12,
@@ -28,6 +34,7 @@ class NormalizedFocalLossSigmoid(nn.Module):
         self._m_max = 0
 
     def forward(self, pred, label):
+        pred = ensure_tensor_with_grad(pred)
         one_hot = label > 0.5
         sample_weight = label != self._ignore_label
 
@@ -95,6 +102,7 @@ class FocalLoss(nn.Module):
         self._size_average = size_average
 
     def forward(self, pred, label, sample_weight=None):
+        pred = ensure_tensor_with_grad(pred)
         one_hot = label > 0.5
         sample_weight = label != self._ignore_label
 
@@ -125,6 +133,7 @@ class SoftIoU(nn.Module):
         self._ignore_label = ignore_label
 
     def forward(self, pred, label):
+        pred = ensure_tensor_with_grad(pred)
         label = label.view(pred.size())
         sample_weight = label != self._ignore_label
 
@@ -146,6 +155,7 @@ class SigmoidBinaryCrossEntropyLoss(nn.Module):
         self._batch_axis = batch_axis
 
     def forward(self, pred, label):
+        pred = ensure_tensor_with_grad(pred)
         label = label.view(pred.size())
         sample_weight = label != self._ignore_label
         label = torch.where(sample_weight, label, torch.zeros_like(label))

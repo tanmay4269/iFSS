@@ -221,12 +221,12 @@ class PFENetModel(iFSSModel):
             mask_list.append(mask)
             with torch.no_grad():
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
-                if coord_features is not None:
-                    supp_feat_0 = supp_feat_0 + F.pad(
-                        coord_features,
-                        [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
-                        mode='constant', value=0
-                    )
+                # if coord_features is not None:
+                #     supp_feat_0 = supp_feat_0 + F.pad(
+                #         coord_features,
+                #         [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
+                #         mode='constant', value=0
+                #     )
                 supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
                 
                 supp_feat_1 = self.layer1(supp_feat_0)
@@ -254,11 +254,11 @@ class PFENetModel(iFSSModel):
             
             x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
             
-            x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()  # ! Maybe broken
-            decoder_outputs.append(x)
+            x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()
+            decoder_outputs.append(x.unsqueeze(1))
         
         return {
-            "instances": decoder_outputs,
+            "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
             "query_helpers": {
                 "supp_feat_list": supp_feat_list,
                 "final_supp_list": final_supp_list,
@@ -369,7 +369,7 @@ class PFENetModel(iFSSModel):
         if self.zoom_factor != 1:
             out = F.interpolate(out, size=(h, w), mode='bilinear', align_corners=True)
         
-        return { "masks": out.max(1)[1] }
+        return { "masks": out.max(1)[1].unsqueeze(1) }
     
         # TODO: Auxilary loss later
         if self.training:
@@ -395,8 +395,8 @@ if __name__ == "__main__":
     
     model = PFENetModel()
     B = 2
-    H = 320
-    W = 480
+    H = 473
+    W = 473
     query_image = torch.randn(B, 3, H, W)
     prev_query_mask = torch.randint(0, 2, (B, 1, H, W)).float()
     query_mask = torch.randint(0, 2, (B, 1, H, W)).float()
