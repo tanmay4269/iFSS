@@ -1,4 +1,5 @@
 # iFSS-RITM
+[outdated readme...]
 
 This work is built on top of [RITM](https://github.com/SamsungLabs/ritm_interactive_segmentation) by extending interactive segmentation to the few shot relm. 
 
