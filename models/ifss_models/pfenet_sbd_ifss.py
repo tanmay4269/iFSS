@@ -24,7 +24,9 @@ def main(cfg):
 
 def init_model(cfg):
     model_cfg = edict()
-    model_cfg.crop_size = (320, 480)
+    # model_cfg.crop_size = (320, 480)
+    model_cfg.crop_size = (473, 473)
+    
     model_cfg.num_max_points = 24
 
     model = PFENetModel(
@@ -49,14 +51,14 @@ def train(model, cfg, model_cfg):
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.s_instance_loss_weight = 1.0
-    loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.s_instance_aux_loss_weight = 0.4
+    # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
+    # loss_cfg.s_instance_aux_loss_weight = 0.4
 
     # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
     loss_cfg.q_mask_loss_weight = 1.0
-    loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.q_mask_aux_loss_weight = 0.4
+    # loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
+    # loss_cfg.q_mask_aux_loss_weight = 0.4
 
     train_augmentator = Compose(
         [
@@ -77,7 +79,8 @@ def train(model, cfg, model_cfg):
             Normalize(
                 mean=(0.485, 0.456, 0.406), 
                 std=(0.229, 0.224, 0.225), 
-                max_pixel_value=1.0),
+                max_pixel_value=1.0
+            ),
         ], 
         p=1.0
     )

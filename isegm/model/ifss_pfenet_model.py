@@ -6,11 +6,17 @@ import torch.nn.functional as F
 
 from isegm.utils.serialization import serialize
 from isegm.model.modifiers import LRMult
-from .ifss_model import iFSSModel
+# from .ifss_model import iFSSModel
 
-from .modeling.pfenet_utils import resnet as models
-from .modeling.deeplab_v3 import _DeepLabHead, _SkipProject, _ASPP
-from .modeling.basic_blocks import SepConvHead
+# from .modeling.pfenet_utils import resnet as models
+# from .modeling.deeplab_v3 import _DeepLabHead, _SkipProject, _ASPP
+# from .modeling.basic_blocks import SepConvHead
+
+from isegm.model.ifss_model import iFSSModel
+
+from isegm.model.modeling.pfenet_utils import resnet as models
+from isegm.model.modeling.deeplab_v3 import _DeepLabHead, _SkipProject, _ASPP
+from isegm.model.modeling.basic_blocks import SepConvHead
     
 
 class PFENetModel(iFSSModel):
@@ -215,12 +221,12 @@ class PFENetModel(iFSSModel):
             mask_list.append(mask)
             with torch.no_grad():
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
-                if coord_features is not None:
-                    supp_feat_0 = supp_feat_0 + F.pad(
-                        coord_features,
-                        [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
-                        mode='constant', value=0
-                    )
+                # if coord_features is not None:
+                #     supp_feat_0 = supp_feat_0 + F.pad(
+                #         coord_features,
+                #         [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
+                #         mode='constant', value=0
+                #     )
                 supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
                 
                 supp_feat_1 = self.layer1(supp_feat_0)
@@ -248,11 +254,11 @@ class PFENetModel(iFSSModel):
             
             x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
             
-            x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()  # ! Maybe broken
-            decoder_outputs.append(x)
+            x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()
+            decoder_outputs.append(x.unsqueeze(1))
         
         return {
-            "instances": decoder_outputs,
+            "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
             "query_helpers": {
                 "supp_feat_list": supp_feat_list,
                 "final_supp_list": final_supp_list,
@@ -269,16 +275,11 @@ class PFENetModel(iFSSModel):
         prev_output = torch.sigmoid(prev_output)
         x = self.query_input(torch.cat((image, prev_output), dim=1))
 
-        # Forcing the size to be (h (and w) - 1) % 8 == 0
         x_size = x.size()
-        pad_h = (8 - ((x_size[2]-1) % 8)) % 8
-        pad_w = (8 - ((x_size[3]-1) % 8)) % 8
-        if pad_h > 0 or pad_w > 0:
-            x = F.pad(x, (0, pad_w, 0, pad_h), mode='reflect')
-        x_size = x.size()
+        assert (x_size[2]-1) % 8 == 0 and (x_size[3]-1) % 8 == 0
         h = int((x_size[2] - 1) / 8 * self.zoom_factor + 1)
         w = int((x_size[3] - 1) / 8 * self.zoom_factor + 1)
-
+        
         # Query Feature
         with torch.no_grad():
             query_feat_0 = self.layer0['pre_maxpool'](x)
@@ -368,7 +369,7 @@ class PFENetModel(iFSSModel):
         if self.zoom_factor != 1:
             out = F.interpolate(out, size=(h, w), mode='bilinear', align_corners=True)
         
-        return { "masks": out.max(1)[1] }
+        return { "masks": out.max(1)[1].unsqueeze(1) }
     
         # TODO: Auxilary loss later
         if self.training:
@@ -387,3 +388,26 @@ class PFENetModel(iFSSModel):
             }
         else:
             return { "masks": out }
+
+if __name__ == "__main__":
+    import torch
+    from isegm.model.ifss_pfenet_model import PFENetModel
+    
+    model = PFENetModel()
+    B = 2
+    H = 473
+    W = 473
+    query_image = torch.randn(B, 3, H, W)
+    prev_query_mask = torch.randint(0, 2, (B, 1, H, W)).float()
+    query_mask = torch.randint(0, 2, (B, 1, H, W)).float()
+    
+    support_image = torch.randn(B, 3, H, W)
+    support_mask = torch.randint(0, 2, (B, 1, H, W)).float()
+    
+    support_output = model.support_forward(support_image, s_gt=support_mask)
+    helpers = support_output["query_helpers"]
+    helpers["q_gt"] = query_mask
+    query_output = model.query_forward(query_image, prev_query_mask, helpers)
+    
+    print("Support Output:", support_output['instances'][0].shape)
+    print("Query Output:", query_output['masks'].shape)

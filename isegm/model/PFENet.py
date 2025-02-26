@@ -62,6 +62,7 @@ class PFENet(nn.Module):
         models.BatchNorm = BatchNorm
         
         if self.vgg:
+            vgg_models = None
             print('INFO: Using VGG_16 bn')
             vgg_models.BatchNorm = BatchNorm
             vgg16 = vgg_models.vgg16_bn(pretrained=pretrained)

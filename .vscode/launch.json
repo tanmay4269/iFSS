@@ -105,5 +105,17 @@
             },
             "justMyCode": false
         },
+        {
+            "name": "ifss-pfenet-debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/tvg/0-Projects/iFSS/isegm/model/ifss_pfenet_model.py",
+            "console": "integratedTerminal",
+            "env": {
+                "DEBUG":"1",
+                "PYTHONPATH": "/home/tvg/0-Projects/iFSS/"
+            },
+            "justMyCode": false
+        },
     ]
 }

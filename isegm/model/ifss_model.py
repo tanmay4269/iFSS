@@ -188,7 +188,10 @@ class iFSSModel(nn.Module):
         if self.binary_prev_mask:
             prev_mask = (prev_mask > 0.5).float()
 
-        image = self.normalization(image)
+        # image = self.normalization(image) # ! Doesn't work for pfenet-ritm
+                                            # ! no idea why i put it in the first place
+                                            # ! even for ifss-ritm, the dataset already
+                                            # ! normalizes the image
         return image, prev_mask
 
     def backbone_forward(self, image, coord_features=None):
