@@ -75,23 +75,27 @@ def load_single_ifss_model(state_dict, device, **kwargs):
 
 
 def get_dataset(dataset_name, cfg):
-    if dataset_name == 'GrabCut':
-        dataset = GrabCutDataset(cfg.GRABCUT_PATH)
-    elif dataset_name == 'Berkeley':
-        dataset = BerkeleyDataset(cfg.BERKELEY_PATH)
-    elif dataset_name == 'DAVIS':
-        dataset = DavisDataset(cfg.DAVIS_PATH)
-    elif dataset_name == 'SBD':
-        dataset = SBDEvaluationDataset(cfg.SBD_PATH)
-    elif dataset_name == 'SBD-iFSS':
+    # if dataset_name == 'GrabCut':
+    #     dataset = GrabCutDataset(cfg.GRABCUT_PATH)
+    # elif dataset_name == 'Berkeley':
+    #     dataset = BerkeleyDataset(cfg.BERKELEY_PATH)
+    # elif dataset_name == 'DAVIS':
+    #     dataset = DavisDataset(cfg.DAVIS_PATH)
+    # elif dataset_name == 'SBD':
+    #     dataset = SBDEvaluationDataset(cfg.SBD_PATH)
+    # elif dataset_name == 'SBD-iFSS':
+    #     dataset = iFSS_SBD_Dataset(
+    #         cfg, cfg.SBD_VAL_PATH, cfg.SBD_VAL_LIST, mode='val', split=1)
+    # elif dataset_name == 'SBD_Train':
+    #     dataset = SBDEvaluationDataset(cfg.SBD_PATH, split='train')
+    # elif dataset_name == 'PascalVOC':
+    #     dataset = PascalVocDataset(cfg.PASCALVOC_PATH, split='test')
+    # elif dataset_name == 'COCO_MVal':
+    #     dataset = DavisDataset(cfg.COCO_MVAL_PATH)
+    
+    if dataset_name == 'SBD-iFSS':
         dataset = iFSS_SBD_Dataset(
             cfg, cfg.SBD_VAL_PATH, cfg.SBD_VAL_LIST, mode='val', split=1)
-    elif dataset_name == 'SBD_Train':
-        dataset = SBDEvaluationDataset(cfg.SBD_PATH, split='train')
-    elif dataset_name == 'PascalVOC':
-        dataset = PascalVocDataset(cfg.PASCALVOC_PATH, split='test')
-    elif dataset_name == 'COCO_MVal':
-        dataset = DavisDataset(cfg.COCO_MVAL_PATH)
     else:
         dataset = None
 

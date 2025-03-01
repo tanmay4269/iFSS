@@ -53,8 +53,8 @@ def init_model(cfg):
     model.apply(initializer.XavierGluon(rnd_type="gaussian", magnitude=2.0))
 
     # ! Temporary 
-    # for net in [model.support_net, model.query_net]:
-    #     net.load_pretrained_weights(cfg.IMAGENET_PRETRAINED_MODELS.HRNETV2_W18)
+    for net in [model.support_net, model.query_net]:
+        net.load_pretrained_weights(cfg.IMAGENET_PRETRAINED_MODELS.HRNETV2_W18)
 
     return model, model_cfg
 
@@ -78,18 +78,19 @@ def train(model, cfg, model_cfg):
 
     train_augmentator = Compose(
         [
-            UniformRandomResize(scale_range=(0.75, 1.25)),
-            Flip(),
-            RandomRotate90(),
-            ShiftScaleRotate(border_mode=0, p=0.75),
+            # UniformRandomResize(scale_range=(0.75, 1.25)),
+            # Flip(),
+            # RandomRotate90(),
+            # ShiftScaleRotate(border_mode=0, p=0.75),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            RandomCrop(*crop_size),
-            RandomBrightnessContrast(),
-            RGBShift(
-                r_shift_limit=(-10, 10),
-                g_shift_limit=(-10, 10),
-                b_shift_limit=(-10, 10),
-            ),
+            CenterCrop(*crop_size),
+            # RandomCrop(*crop_size),
+            # RandomBrightnessContrast(),
+            # RGBShift(
+            #     r_shift_limit=(-10, 10),
+            #     g_shift_limit=(-10, 10),
+            #     b_shift_limit=(-10, 10),
+            # ),
             # HueSaturationValue(p=0.25),
             # GaussianBlur(p=0.25),
             Normalize(
