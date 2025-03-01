@@ -35,6 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
+        backbone_lr_mult=0.1,
     )
 
     model.to(cfg.device)
@@ -46,6 +47,12 @@ def init_model(cfg):
 def train(model, cfg, model_cfg):
     cfg.val_batch_size = cfg.batch_size
     crop_size = model_cfg.crop_size
+    
+    if cfg.debug == "one_batch_overfit":
+        random.seed(42)
+        np.random.seed(42)
+        torch.manual_seed(42)
+        torch.cuda.manual_seed_all(42)
 
     loss_cfg = edict()
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
@@ -62,18 +69,19 @@ def train(model, cfg, model_cfg):
 
     train_augmentator = Compose(
         [
-            UniformRandomResize(scale_range=(0.75, 1.25)),
-            Flip(),
-            RandomRotate90(),
-            ShiftScaleRotate(border_mode=0, p=0.75),
+            # UniformRandomResize(scale_range=(0.75, 1.25)),
+            # Flip(),
+            # RandomRotate90(),
+            # ShiftScaleRotate(border_mode=0, p=0.75),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            RandomCrop(*crop_size),
-            RandomBrightnessContrast(),
-            RGBShift(
-                r_shift_limit=(-10, 10),
-                g_shift_limit=(-10, 10),
-                b_shift_limit=(-10, 10),
-            ),
+            # RandomCrop(*crop_size),
+            CenterCrop(*crop_size),
+            # RandomBrightnessContrast(),
+            # RGBShift(
+            #     r_shift_limit=(-10, 10),
+            #     g_shift_limit=(-10, 10),
+            #     b_shift_limit=(-10, 10),
+            # ),
             # HueSaturationValue(p=0.25),
             # GaussianBlur(p=0.25),
             Normalize(
@@ -136,7 +144,7 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    lr = (3e-4 / 22 * 8)
+    lr = 1e-5
     optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
@@ -153,7 +161,7 @@ def train(model, cfg, model_cfg):
         optimizer_params=optimizer_params,
         lr_scheduler=lr_scheduler,
         checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
-        image_dump_interval=1,  # FIXME: units?
+        image_dump_interval=100,  # FIXME: units?
         metrics=[
             AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances"),
             AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks"),

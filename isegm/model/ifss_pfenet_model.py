@@ -221,12 +221,12 @@ class PFENetModel(iFSSModel):
             mask_list.append(mask)
             with torch.no_grad():
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
-                # if coord_features is not None:
-                #     supp_feat_0 = supp_feat_0 + F.pad(
-                #         coord_features,
-                #         [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
-                #         mode='constant', value=0
-                #     )
+                if coord_features is not None:
+                    supp_feat_0 = supp_feat_0 + F.pad(
+                        coord_features,
+                        [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
+                        mode='constant', value=0
+                    )
                 supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
                 
                 supp_feat_1 = self.layer1(supp_feat_0)

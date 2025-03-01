@@ -87,7 +87,7 @@ class iFSSTrainer(object):
         shuffle = not (cfg.debug == "one_batch_overfit")
         self.train_data = DataLoader(
             trainset,
-            cfg.batch_size,
+            cfg.batch_size // 2,  # ! Temporary hack
             sampler=get_sampler(trainset, shuffle=shuffle, distributed=cfg.distributed),
             drop_last=True,
             pin_memory=True,
@@ -96,7 +96,7 @@ class iFSSTrainer(object):
 
         self.val_data = DataLoader(
             valset,
-            cfg.val_batch_size,
+            cfg.val_batch_size // 2,  # ! Temporary hack
             sampler=get_sampler(valset, shuffle=False, distributed=cfg.distributed),
             drop_last=True,
             pin_memory=True,
@@ -182,9 +182,6 @@ class iFSSTrainer(object):
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.train_data) + i
             
-            if self.cfg.debug == "one_batch_overfit" and i > 3:
-                break
-
             loss, losses_logging, splitted_batch_data, outputs = \
                 self.batch_forward(batch_data)
 
@@ -239,9 +236,10 @@ class iFSSTrainer(object):
                     metric.log_states(
                         self.sw, f"{log_prefix}Metrics/{metric.name}", global_step
                     )
+                    
+                self.sw.flush()
 
-        # Saving model ckpt from here
-        if self.is_master and self.cfg.debug != 'one_batch_overfit':
+        if self.is_master:
             for metric in self.train_metrics:
                 self.sw.add_scalar(
                     tag=f"{log_prefix}Metrics/{metric.name}",
@@ -249,7 +247,11 @@ class iFSSTrainer(object):
                     global_step=epoch,
                     disable_avg=True,
                 )
+                
+            self.sw.flush()
 
+        # Saving model ckpt from here
+        if self.is_master and self.cfg.debug != 'one_batch_overfit':
             save_checkpoint(
                 self.net,
                 self.cfg.CHECKPOINTS_PATH,
@@ -302,9 +304,6 @@ class iFSSTrainer(object):
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.val_data) + i
             
-            if self.cfg.debug == "one_batch_overfit" and i > 3:
-                break
-
             loss, batch_losses_logging, splitted_batch_data, outputs = (
                 self.batch_forward(batch_data, validation=True)
             )

@@ -1,4 +1,4 @@
-export DEBUG=1
+# export DEBUG=1
 
 python train.py \
     models/ifss_models/pfenet_sbd_ifss.py \

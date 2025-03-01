@@ -109,11 +109,19 @@
             "name": "ifss-pfenet-debug",
             "type": "debugpy",
             "request": "launch",
-            "program": "/home/tvg/0-Projects/iFSS/isegm/model/ifss_pfenet_model.py",
+            "program": "train.py",
             "console": "integratedTerminal",
+            "args": [
+                "models/ifss_models/pfenet_sbd_ifss.py",
+                "--gpus=0",
+                "--workers=1",
+                "--batch-size=8", 
+                "--exp-name=debug",
+                "--pretrain-mode",
+                "--debug=one_batch_overfit"
+            ],
             "env": {
                 "DEBUG":"1",
-                "PYTHONPATH": "/home/tvg/0-Projects/iFSS/"
             },
             "justMyCode": false
         },

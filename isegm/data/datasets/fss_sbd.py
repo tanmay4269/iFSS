@@ -86,6 +86,8 @@ class iFSS_SBD_Dataset(iFSSDataset):
         # self.mode = "val-loaded"
 
     def get_sample(self, index):
+        if self.cfg.debug == "one_batch_overfit":
+            np.random.seed(42)
         # if self.mode == "val-loaded":
         #     return self.val_samples[index]
 
