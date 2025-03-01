@@ -54,8 +54,11 @@ class iFSS_SBD_Dataset(iFSSDataset):
             data_root,
             data_list,
         )
+        
+        if not hasattr(self.cfg, 'debug'):
+            self.cfg.debug = None
 
-        if self.cfg.debug == "one_batch_overfit":
+        if self.cfg.debug is not None and self.cfg.debug == "one_batch_overfit":
             self.dataset_samples = self.dataset_samples[:cfg.batch_size]
             for k, v in self.sub_class_file_list.items():
                 self.sub_class_file_list[k] = v[:cfg.batch_size]
@@ -86,7 +89,7 @@ class iFSS_SBD_Dataset(iFSSDataset):
         # self.mode = "val-loaded"
 
     def get_sample(self, index):
-        if self.cfg.debug == "one_batch_overfit":
+        if self.cfg.debug is not None and self.cfg.debug == "one_batch_overfit":
             np.random.seed(42)
         # if self.mode == "val-loaded":
         #     return self.val_samples[index]

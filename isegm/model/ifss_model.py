@@ -137,7 +137,10 @@ class iFSSModel(nn.Module):
 
         # For PFENet stuff:
         helpers = s_outputs.pop("query_helpers", None)
-        helpers["q_gt"] = q_inputs.gt
+        if helpers is not None:
+            helpers["q_gt"] = q_inputs.gt
+        else:
+            helpers = s_outputs["prototypes"]
         q_outputs = self.query_forward(
             q_inputs.image,
             q_inputs.prev_output,

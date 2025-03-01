@@ -119,6 +119,15 @@ def parse_args():
         default="",
         help="The path to the evaluation logs. Default path: cfg.EXPS_PATH/evaluation_logs.",
     )
+    parser.add_argument(
+        "--debug",
+        type=str,
+        default=None,
+        help="""
+            [one_batch_overfit] does what it says for the same batch over train and val. 
+            [any thing but None] for storing weigths and stuff at a different place coz tb logging gets interupted.
+        """
+    )
 
     args = parser.parse_args()
     if args.cpu:

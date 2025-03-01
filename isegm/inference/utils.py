@@ -4,7 +4,8 @@ from pathlib import Path
 import torch
 import numpy as np
 
-from isegm.data.datasets import GrabCutDataset, BerkeleyDataset, DavisDataset, SBDEvaluationDataset, PascalVocDataset
+# from isegm.data.datasets import GrabCutDataset, BerkeleyDataset, DavisDataset, SBDEvaluationDataset, PascalVocDataset
+# from isegm.data.datasets import SBDEvaluationDataset
 from isegm.data.datasets import iFSS_SBD_Dataset
 from isegm.utils.serialization import load_model
 
@@ -83,7 +84,8 @@ def get_dataset(dataset_name, cfg):
     elif dataset_name == 'SBD':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH)
     elif dataset_name == 'SBD-iFSS':
-        dataset = iFSS_SBD_Dataset(cfg.SBD_VAL_PATH, cfg.SBD_VAL_LIST, mode='val', split=1)
+        dataset = iFSS_SBD_Dataset(
+            cfg, cfg.SBD_VAL_PATH, cfg.SBD_VAL_LIST, mode='val', split=1)
     elif dataset_name == 'SBD_Train':
         dataset = SBDEvaluationDataset(cfg.SBD_PATH, split='train')
     elif dataset_name == 'PascalVOC':
