@@ -181,6 +181,9 @@ class iFSSTrainer(object):
         train_loss = 0.0
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.train_data) + i
+            
+            if self.cfg.debug == "one_batch_overfit" and i > 3:
+                break
 
             loss, losses_logging, splitted_batch_data, outputs = \
                 self.batch_forward(batch_data)
@@ -298,6 +301,9 @@ class iFSSTrainer(object):
         self.net.eval()
         for i, batch_data in enumerate(tbar):
             global_step = epoch * len(self.val_data) + i
+            
+            if self.cfg.debug == "one_batch_overfit" and i > 3:
+                break
 
             loss, batch_losses_logging, splitted_batch_data, outputs = (
                 self.batch_forward(batch_data, validation=True)

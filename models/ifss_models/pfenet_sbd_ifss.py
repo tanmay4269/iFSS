@@ -14,7 +14,7 @@ from isegm.data.transforms import *
 from isegm.data.points_sampler import MultiPointSampler
 from isegm.data.datasets.fss_sbd import iFSS_SBD_Dataset
 
-MODEL_NAME = "sbd_hrnet18"
+MODEL_NAME = "sbd_pfenet_ifss"
 
 
 def main(cfg):
@@ -136,7 +136,8 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    optimizer_params = {"lr":3e-4, "betas": (0.9, 0.999), "eps": 1e-8}
+    lr = (3e-4 / 22 * 8)
+    optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5

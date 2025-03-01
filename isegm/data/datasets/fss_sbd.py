@@ -56,36 +56,38 @@ class iFSS_SBD_Dataset(iFSSDataset):
         )
 
         if self.cfg.debug == "one_batch_overfit":
-            self.dataset_samples = self.dataset_samples[: cfg.batch_size]
+            self.dataset_samples = self.dataset_samples[:cfg.batch_size]
             for k, v in self.sub_class_file_list.items():
-                self.sub_class_file_list[k] = v[: cfg.batch_size]
+                self.sub_class_file_list[k] = v[:cfg.batch_size]
 
-        # For consistent validation
-        if mode != "val":
-            return
+        ...
+        # ! Doesn't work now :(
+        # # For consistent validation
+        # if mode != "val":
+        #     return
 
-        val_samples_filename = (
-            f"val_samples_split{split}_{np.random.randint(10, 100)}.pt"
-        )
-        val_samples_path = os.path.join(cfg.SBD_CACHE, val_samples_filename)
-        if False and val_samples_filename in os.listdir(cfg.SBD_CACHE):
-            print("Loading val samples from cache...", end="")
-            self.val_samples = torch.load(val_samples_path)
-            print("Done!")
-        else:
-            # print("Saving val samples...")
-            # self.val_samples = []
-            # for i in tqdm(range(len(self.dataset_samples)), desc="Processing samples"):
-            #     self.val_samples.append(self.get_sample(i))
-            # print("Saving samples to cache...", end="")
-            # torch.save(self.val_samples, val_samples_path)
-            # print("Done!")
-            ...
-        self.mode = "val-loaded"
+        # val_samples_filename = (
+        #     f"val_samples_split{split}_{np.random.randint(10, 100)}.pt"
+        # )
+        # val_samples_path = os.path.join(cfg.SBD_CACHE, val_samples_filename)
+        # if False and val_samples_filename in os.listdir(cfg.SBD_CACHE):
+        #     print("Loading val samples from cache...", end="")
+        #     self.val_samples = torch.load(val_samples_path)
+        #     print("Done!")
+        # else:
+        #     print("Saving val samples...")
+        #     self.val_samples = []
+        #     for i in tqdm(range(len(self.dataset_samples)), desc="Processing samples"):
+        #         self.val_samples.append(self.get_sample(i))
+        #     print("Saving samples to cache...", end="")
+        #     torch.save(self.val_samples, val_samples_path)
+        #     print("Done!")
+        #     ...
+        # self.mode = "val-loaded"
 
     def get_sample(self, index):
-        if self.mode == "val-loaded":
-            return self.val_samples[index]
+        # if self.mode == "val-loaded":
+        #     return self.val_samples[index]
 
         image_path, label_path = self.dataset_samples[index]
         image, label = self.get_raw_image_label(image_path, label_path)
