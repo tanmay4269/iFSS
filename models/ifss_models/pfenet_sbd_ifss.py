@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=0.1,
+        backbone_lr_mult=1.0,
     )
 
     model.to(cfg.device)
@@ -144,7 +144,7 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    lr = 1e-5
+    lr = 1e-3
     optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
@@ -161,7 +161,7 @@ def train(model, cfg, model_cfg):
         optimizer_params=optimizer_params,
         lr_scheduler=lr_scheduler,
         checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
-        image_dump_interval=100,  # FIXME: units?
+        image_dump_interval=50,  # FIXME: units?
         metrics=[
             AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances"),
             AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks"),

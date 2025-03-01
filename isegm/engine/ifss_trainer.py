@@ -360,7 +360,10 @@ class iFSSTrainer(object):
 
             last_click_indx = None
             with torch.no_grad():
-                num_iters = random.randint(0, self.max_num_next_clicks)
+                if self.cfg.debug == "one_batch_overfit":
+                    num_iters = self.max_num_next_clicks
+                else:
+                    num_iters = random.randint(0, self.max_num_next_clicks)
 
                 for click_indx in range(num_iters):
                     last_click_indx = click_indx
@@ -394,10 +397,13 @@ class iFSSTrainer(object):
                     and self.prev_mask_drop_prob > 0
                     and last_click_indx is not None
                 ):
-                    zero_mask = (
-                        np.random.random(size=support.prev_output.size(0))
-                        < self.prev_mask_drop_prob
-                    )
+                    if self.cfg.debug == "one_batch_overfit":
+                        zero_mask = torch.zeros_like(support.prev_output[:, :1, :, :]).bool()
+                    else:
+                        zero_mask = (
+                            np.random.random(size=support.prev_output.size(0))
+                            < self.prev_mask_drop_prob
+                        )
                     support.prev_output[zero_mask] = torch.zeros_like(
                         support.prev_output[zero_mask]
                     )
