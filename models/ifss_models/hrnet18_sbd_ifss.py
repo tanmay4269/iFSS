@@ -153,7 +153,7 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    optimizer_params = {"lr": 5e-5, "betas": (0.9, 0.999), "eps": 1e-8}
+    optimizer_params = {"lr": 1e-4, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5
@@ -182,4 +182,5 @@ def train(model, cfg, model_cfg):
         max_interactive_points=model_cfg.num_max_points,
         max_num_next_clicks=3,
     )
-    trainer.run(num_epochs=220)
+    trainer.run(num_epochs=1000)
+    # trainer.run(num_epochs=220)
