@@ -145,8 +145,7 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    lr = 1e-3
-    optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
+    optimizer_params = {"lr": 3e-4, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5
