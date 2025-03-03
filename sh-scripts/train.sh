@@ -9,11 +9,19 @@
 #     --pretrain-mode \
 #     --debug=one_batch_overfit
 
+# python train.py \
+#     models/ifss_models/hrnet18_sbd_ifss.py \
+#     --gpus=0 \
+#     --workers=4 \
+#     --batch-size=8 \
+#     --exp-name=debug \
+#     --pretrain-mode \
+#     --debug=one_batch_overfit
+
 python train.py \
     models/ifss_models/hrnet18_sbd_ifss.py \
     --gpus=0 \
-    --workers=4 \
-    --batch-size=8 \
-    --exp-name=debug \
-    --pretrain-mode \
-    --debug=one_batch_overfit
+    --workers=8 \
+    --batch-size=22 \
+    --exp-name=expt-01 \
+    --pretrain-mode
