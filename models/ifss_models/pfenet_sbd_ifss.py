@@ -37,7 +37,7 @@ def init_model(cfg):
         with_prev_mask=True,
         backbone_lr_mult=1.0,
     )
-
+    
     model.to(cfg.device)
     model.apply(initializer.XavierGluon(rnd_type="gaussian", magnitude=2.0))
 
@@ -159,7 +159,7 @@ def train(model, cfg, model_cfg):
     ]
     if not cfg.pretrain_mode:
         eval_metrics.append(
-            AdaptiveIoU(name="query_iou", pred_output="q_instances", gt_output="q_instances")
+            AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks")
         )
     trainer = iFSSTrainer(
         model,

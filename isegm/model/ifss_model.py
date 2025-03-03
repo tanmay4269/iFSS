@@ -126,21 +126,23 @@ class iFSSModel(nn.Module):
 
         if self.rgb_conv is not None:
             x = self.rgb_conv(torch.cat((s_image, coord_features), dim=1))
-            s_outputs = self.support_forward(
-                x, s_inputs.gt if pretraining_enabled else None)
+            # s_outputs = self.support_forward(
+            #     x, s_inputs.gt if pretraining_enabled else None)
+            s_outputs = self.support_forward(x, s_inputs.gt)  # ! Temporary fix
         else:
             coord_features = self.maps_transform(coord_features)
-            s_outputs = self.support_forward(
-                s_image, 
-                s_inputs.gt if pretraining_enabled else None, 
-                coord_features)
+            # s_outputs = self.support_forward(
+            #     s_image, 
+            #     s_inputs.gt if pretraining_enabled else None, 
+            #     coord_features)
+            s_outputs = self.support_forward(s_image, s_inputs.gt, coord_features)  # ! Temporary fix
 
         if not pretraining_enabled:
             helpers = s_outputs.pop("query_helpers", None)
-            if helpers is not None:
-                helpers["q_gt"] = q_inputs.gt
-            else:
+            if helpers is None:
                 helpers = s_outputs["prototypes"]
+            else:
+                helpers["q_gt"] = q_inputs.gt
             q_outputs = self.query_forward(
                 q_inputs.image,
                 q_inputs.prev_output,

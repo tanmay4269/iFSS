@@ -86,26 +86,6 @@
             }
         },
         {
-            "name": "ifss-pfenet-train",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train.py",
-            "console": "integratedTerminal",
-            "args": [
-                "models/ifss_models/pfenet_sbd_ifss.py",
-                "--gpus=0",
-                "--workers=1",
-                "--batch-size=4", 
-                "--exp-name=debug",
-                "--pretrain-mode",
-                "--debug=True"
-            ],
-            "env": {
-                "DEBUG":"1",
-            },
-            "justMyCode": false
-        },
-        {
             "name": "ifss-pfenet-debug",
             "type": "debugpy",
             "request": "launch",
@@ -115,7 +95,7 @@
                 "models/ifss_models/pfenet_sbd_ifss.py",
                 "--gpus=0",
                 "--workers=1",
-                "--batch-size=8", 
+                "--batch-size=4", 
                 "--exp-name=debug",
                 "--pretrain-mode",
                 "--debug=one_batch_overfit"

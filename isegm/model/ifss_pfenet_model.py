@@ -188,7 +188,7 @@ class PFENetModel(iFSSModel):
             num_layers=2, 
             norm_layer=norm_layer
         )
-    
+        
     def weighted_GAP(self, supp_feat, mask):
         supp_feat = supp_feat * mask
         feat_h, feat_w = supp_feat.shape[-2:][0], supp_feat.shape[-2:][1]
@@ -205,6 +205,9 @@ class PFENetModel(iFSSModel):
             - coord_features: some function of the image, prev mask
                 and the click points. May or may not be provided. 
         """
+        
+        # pretraining_enabled = s_gt is not None
+        pretraining_enabled = False
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
@@ -239,10 +242,10 @@ class PFENetModel(iFSSModel):
                 mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
                 supp_feat_4 = self.layer4(supp_feat_3 * mask)
                 
-                if s_gt is None:
+                if not pretraining_enabled:
                     final_supp_list.append(supp_feat_4)
             
-            if s_gt is None:
+            if not pretraining_enabled:
                 supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
                 supp_feat = self.down_supp(supp_feat)
                 supp_feat = self.weighted_GAP(supp_feat, mask)
@@ -253,8 +256,6 @@ class PFENetModel(iFSSModel):
             x = self.aspp(supp_feat_4)
             x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
             x = torch.cat((x, supp_feat_1), dim=1)
-            # x = self.neck(x)
-            # x = self.head(x)
             
             def stabilize_features(x, name=""):
                 with torch.no_grad():
@@ -266,7 +267,6 @@ class PFENetModel(iFSSModel):
                         x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
                 return x
 
-            # Then use in support_forward
             x = self.neck(x)
             x = stabilize_features(x, "neck")
             x = self.head(x)
@@ -274,17 +274,13 @@ class PFENetModel(iFSSModel):
             
             x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
             
-            # x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()  # Info: Since SigmoidBinaryCrossEntropyLoss accepts logits
-            # decoder_outputs.append(x.unsqueeze(1))
             decoder_outputs.append(x)
         
         out_dir = {
             "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
         }
-        if s_gt is None:
-            # This will not be called when pretraining is being done
-            # which only needs to train the support network and query 
-            # path isn't even called
+
+        if not pretraining_enabled:
             out_dir["query_helpers"] = {
                 "supp_feat_list": supp_feat_list,
                 "final_supp_list": final_supp_list,
@@ -308,7 +304,7 @@ class PFENetModel(iFSSModel):
         w = int((x_size[3] - 1) / 8 * self.zoom_factor + 1)
         
         # Query Feature
-        with torch.no_grad():
+        with torch.set_grad_enabled(False):  # TODO: Play with this
             query_feat_0 = self.layer0['pre_maxpool'](x)
             query_feat_0 = self.layer0['maxpool'](query_feat_0)
             query_feat_1 = self.layer1(query_feat_0)
