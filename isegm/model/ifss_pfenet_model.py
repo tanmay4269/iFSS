@@ -212,14 +212,12 @@ class PFENetModel(iFSSModel):
         
         # Support Feature
         # ! Improve this code: presentation and performance
+        decoder_outputs = []
         supp_feat_list = []
         final_supp_list = []
         mask_list = []
-        decoder_outputs = []
         for i in range(self.shot):
-            mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
-            mask_list.append(mask)
-            with torch.no_grad():
+            with torch.set_grad_enabled(True):
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
                 if coord_features is not None:
                     supp_feat_0 = supp_feat_0 + F.pad(
@@ -233,29 +231,52 @@ class PFENetModel(iFSSModel):
                 supp_feat_2 = self.layer2(supp_feat_1)
                 supp_feat_3 = self.layer3(supp_feat_2)
                 
+                mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
+                if mask.sum() < 1e-6:
+                    mask = mask + 0.01
+                mask_list.append(mask)
                 mask = mask[:,:,0] # Remove extra dimensions
                 mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
                 supp_feat_4 = self.layer4(supp_feat_3 * mask)
                 
-                final_supp_list.append(supp_feat_4)
+                if s_gt is None:
+                    final_supp_list.append(supp_feat_4)
             
-            supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
-            supp_feat = self.down_supp(supp_feat)
-            supp_feat = self.weighted_GAP(supp_feat, mask)
-            supp_feat_list.append(supp_feat)
+            if s_gt is None:
+                supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
+                supp_feat = self.down_supp(supp_feat)
+                supp_feat = self.weighted_GAP(supp_feat, mask)
+                supp_feat_list.append(supp_feat)
             
             # Decoding
             supp_feat_1 = self.skip_project(supp_feat_1)
             x = self.aspp(supp_feat_4)
             x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
             x = torch.cat((x, supp_feat_1), dim=1)
+            # x = self.neck(x)
+            # x = self.head(x)
+            
+            def stabilize_features(x, name=""):
+                with torch.no_grad():
+                    if torch.isnan(x).any():
+                        print(f"NaN detected in {name}")
+                        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
+                    if torch.isinf(x).any():
+                        print(f"Inf detected in {name}")
+                        x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
+                return x
+
+            # Then use in support_forward
             x = self.neck(x)
+            x = stabilize_features(x, "neck")
             x = self.head(x)
+            x = stabilize_features(x, "head")
             
             x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
             
-            x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()
-            decoder_outputs.append(x.unsqueeze(1))
+            # x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()  # Info: Since SigmoidBinaryCrossEntropyLoss accepts logits
+            # decoder_outputs.append(x.unsqueeze(1))
+            decoder_outputs.append(x)
         
         out_dir = {
             "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot

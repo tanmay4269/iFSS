@@ -23,5 +23,7 @@ def get_optimizer(model, opt_name, opt_kwargs):
         'adam': torch.optim.Adam,
         'adamw': torch.optim.AdamW
     }[opt_name.lower()](params, **opt_kwargs)
+    
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
     return optimizer
