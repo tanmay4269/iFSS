@@ -208,7 +208,7 @@ class PFENetModel(iFSSModel):
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
-        s_y = s_gt.unsqueeze(1)
+        s_y = s_gt.unsqueeze(1)  # !!! When s_gt is None, use the self generated mask instead
         
         # Support Feature
         # ! Improve this code: presentation and performance
@@ -257,14 +257,20 @@ class PFENetModel(iFSSModel):
             x = (torch.sigmoid(x[:, 0]) > filter_threshold).float()
             decoder_outputs.append(x.unsqueeze(1))
         
-        return {
+        out_dir = {
             "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
-            "query_helpers": {
+        }
+        if s_gt is None:
+            # This will not be called when pretraining is being done
+            # which only needs to train the support network and query 
+            # path isn't even called
+            out_dir["query_helpers"] = {
                 "supp_feat_list": supp_feat_list,
                 "final_supp_list": final_supp_list,
                 "mask_list": mask_list
             }
-        }
+            
+        return out_dir
         
     def query_forward(self, image, prev_output, helpers):
         """

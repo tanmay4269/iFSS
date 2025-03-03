@@ -61,11 +61,12 @@ def train(model, cfg, model_cfg):
     # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     # loss_cfg.s_instance_aux_loss_weight = 0.4
 
-    # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
-    loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.q_mask_loss_weight = 1.0
-    # loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
-    # loss_cfg.q_mask_aux_loss_weight = 0.4
+    if not cfg.pretrain_mode:
+        # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
+        loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
+        loss_cfg.q_mask_loss_weight = 1.0
+        # loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
+        # loss_cfg.q_mask_aux_loss_weight = 0.4
 
     train_augmentator = Compose(
         [
@@ -150,6 +151,14 @@ def train(model, cfg, model_cfg):
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5
     )
+    
+    eval_metrics = [
+        AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances")
+    ]
+    if not cfg.pretrain_mode:
+        eval_metrics.append(
+            AdaptiveIoU(name="query_iou", pred_output="q_instances", gt_output="q_instances")
+        )
     trainer = iFSSTrainer(
         model,
         cfg,
@@ -162,10 +171,7 @@ def train(model, cfg, model_cfg):
         lr_scheduler=lr_scheduler,
         checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
         image_dump_interval=50,  # FIXME: units?
-        metrics=[
-            AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances"),
-            AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks"),
-        ],
+        metrics=eval_metrics,
         max_interactive_points=model_cfg.num_max_points,
         max_num_next_clicks=3,
     )

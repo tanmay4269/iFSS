@@ -383,7 +383,8 @@ class iFSSTrainer(object):
 
                     # For next iteration
                     support.prev_output = torch.sigmoid(outputs["s_instances"])
-                    query.prev_output = torch.sigmoid(outputs["q_masks"])
+                    if not self.pretraining_enabled:
+                        query.prev_output = torch.sigmoid(outputs["q_masks"])
 
                     support.points = get_next_points(
                         support.prev_output, support.gt, support.points, click_indx + 1
@@ -421,29 +422,32 @@ class iFSSTrainer(object):
                 lambda: (outputs["s_instances"], batch_data["s_instances"]),
             )
 
-            # loss = self.add_loss(
-            #     "s_instance_aux_loss",
-            #     loss,
-            #     losses_logging,
-            #     validation,
-            #     lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
-            # )
+            if "s_instances_aux" in outputs:
+                loss = self.add_loss(
+                    "s_instance_aux_loss",
+                    loss,
+                    losses_logging,
+                    validation,
+                    lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
+                )
 
-            loss = self.add_loss(
-                "q_mask_loss",
-                loss,
-                losses_logging,
-                validation,
-                lambda: (outputs["q_masks"].float(), batch_data["q_masks"].float()),
-            )
+            if "q_masks" in outputs:
+                loss = self.add_loss(
+                    "q_mask_loss",
+                    loss,
+                    losses_logging,
+                    validation,
+                    lambda: (outputs["q_masks"].float(), batch_data["q_masks"].float()),
+                )
 
-            # loss = self.add_loss(
-            #     "q_mask_aux_loss",
-            #     loss,
-            #     losses_logging,
-            #     validation,
-            #     lambda: (outputs["q_masks_aux"], batch_data["q_masks"]),
-            # )
+            if "q_masks_aux" in outputs:
+                loss = self.add_loss(
+                    "q_mask_aux_loss",
+                    loss,
+                    losses_logging,
+                    validation,
+                    lambda: (outputs["q_masks_aux"], batch_data["q_masks"]),
+                )
 
             if self.is_master:
                 with torch.no_grad():
@@ -471,6 +475,54 @@ class iFSSTrainer(object):
         return total_loss
 
     def save_visualization(self, splitted_batch_data, outputs, global_step, prefix):
+        # TODO: Refactor this method
+        if "q_masks" in outputs:
+            self._visualize_support_and_query(splitted_batch_data, outputs, global_step, prefix)
+        else:
+            self._visualize_support_only(splitted_batch_data, outputs, global_step, prefix)    
+            
+    def _visualize_support_only(self, splitted_batch_data, outputs, global_step, prefix):
+        output_images_path = self.cfg.VIS_PATH / prefix
+        if self.task_prefix:
+            output_images_path /= self.task_prefix
+
+        if not output_images_path.exists():
+            output_images_path.mkdir(parents=True)
+        image_name_prefix = f'{global_step:06d}'
+
+        def _save_image(suffix, image):
+            cv2.imwrite(str(output_images_path / f'{image_name_prefix}_{suffix}.jpg'),
+                        image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        images = splitted_batch_data['s_images']
+        points = splitted_batch_data['s_points']
+        instance_masks = splitted_batch_data['s_instances']
+
+        gt_instance_masks = instance_masks.cpu().numpy()
+        predicted_instance_masks = torch.sigmoid(outputs['s_instances']).detach().cpu().numpy()
+        points = points.detach().cpu().numpy()
+
+        image_blob, points = images[0], points[0]
+        gt_mask = np.squeeze(gt_instance_masks[0], axis=0)
+        predicted_mask = np.squeeze(predicted_instance_masks[0], axis=0)
+
+        if self.undo_normalize is not None:
+            image_blob = self.undo_normalize.apply(image_blob.cpu().numpy())
+
+        image = image_blob * 255
+        image = image.transpose((1, 2, 0))
+
+        image_with_points = draw_points(image, points[:self.max_interactive_points], (0, 255, 0))
+        image_with_points = draw_points(image_with_points, points[self.max_interactive_points:], (0, 0, 255))
+
+        gt_mask[gt_mask < 0] = 0.25
+        gt_mask = draw_probmap(gt_mask)
+        predicted_mask = draw_probmap(predicted_mask)
+        viz_image = np.hstack((image_with_points, gt_mask, predicted_mask)).astype(np.uint8)
+
+        _save_image('instance_segmentation', viz_image[:, :, ::-1])
+        
+    def _visualize_support_and_query(self, splitted_batch_data, outputs, global_step, prefix):
         output_images_path = self.cfg.VIS_PATH / prefix
         if self.task_prefix:
             output_images_path /= self.task_prefix

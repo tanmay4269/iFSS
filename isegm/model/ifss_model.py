@@ -135,17 +135,17 @@ class iFSSModel(nn.Module):
                 s_inputs.gt if pretraining_enabled else None, 
                 coord_features)
 
-        # For PFENet stuff:
-        helpers = s_outputs.pop("query_helpers", None)
-        if helpers is not None:
-            helpers["q_gt"] = q_inputs.gt
-        else:
-            helpers = s_outputs["prototypes"]
-        q_outputs = self.query_forward(
-            q_inputs.image,
-            q_inputs.prev_output,
-            helpers,
-        )
+        if not pretraining_enabled:
+            helpers = s_outputs.pop("query_helpers", None)
+            if helpers is not None:
+                helpers["q_gt"] = q_inputs.gt
+            else:
+                helpers = s_outputs["prototypes"]
+            q_outputs = self.query_forward(
+                q_inputs.image,
+                q_inputs.prev_output,
+                helpers,
+            )
 
         s_outputs["instances"] = nn.functional.interpolate(
             s_outputs["instances"],
@@ -154,12 +154,13 @@ class iFSSModel(nn.Module):
             align_corners=True,
         )
 
-        q_outputs["masks"] = nn.functional.interpolate(
-            q_outputs["masks"],
-            size=q_inputs.image.size()[2:],
-            mode="bilinear",
-            align_corners=True,
-        )
+        if not pretraining_enabled:
+            q_outputs["masks"] = nn.functional.interpolate(
+                q_outputs["masks"],
+                size=q_inputs.image.size()[2:],
+                mode="bilinear",
+                align_corners=True,
+            )
 
         if self.with_aux_output:
             s_outputs["instances_aux"] = nn.functional.interpolate(
@@ -169,12 +170,13 @@ class iFSSModel(nn.Module):
                 align_corners=True,
             )
 
-            q_outputs["masks_aux"] = nn.functional.interpolate(
-                q_outputs["masks_aux"],
-                size=q_inputs.image.size()[2:],
-                mode="bilinear",
-                align_corners=True,
-            )
+            if not pretraining_enabled:
+                q_outputs["masks_aux"] = nn.functional.interpolate(
+                    q_outputs["masks_aux"],
+                    size=q_inputs.image.size()[2:],
+                    mode="bilinear",
+                    align_corners=True,
+                )
 
         outputs = {}
         for k, v in s_outputs.items():
@@ -182,8 +184,9 @@ class iFSSModel(nn.Module):
                 continue
             outputs[f"s_{k}"] = v
 
-        for k, v in q_outputs.items():
-            outputs[f"q_{k}"] = v
+        if not pretraining_enabled:
+            for k, v in q_outputs.items():
+                outputs[f"q_{k}"] = v
 
         return outputs
 
