@@ -97,7 +97,7 @@
                 "--workers=1",
                 "--batch-size=4", 
                 "--exp-name=debug",
-                "--pretrain-mode",
+                // "--pretrain-mode",
                 "--debug=one_batch_overfit"
             ],
             "env": {

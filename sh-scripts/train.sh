@@ -16,8 +16,8 @@ python train.py \
     --batch-size=4 \
     --exp-name=debug \
     --debug=one_batch_overfit \
+    --weights="weights/pfenet_ifss_pretraining.pth" \
     # --pretrain-mode \
-    # --weights="weights/pfenet_ifss_pretraining.pth"
 
 # python train.py \
 #     models/ifss_models/hrnet18_sbd_ifss.py \

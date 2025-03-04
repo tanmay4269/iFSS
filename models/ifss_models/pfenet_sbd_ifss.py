@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,  # TODO: Experiment with non-zero
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.5,  # TODO: Experiment with non-zero
         support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
@@ -61,10 +61,7 @@ def train(model, cfg, model_cfg):
     loss_cfg = edict()
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
-    if cfg.pretrain_mode:
-        loss_cfg.s_instance_loss_weight = 0.1
-    else:
-        loss_cfg.s_instance_loss_weight = 1.0
+    loss_cfg.s_instance_loss_weight = 1.0 if cfg.pretrain_mode else 1e-6
     # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     # loss_cfg.s_instance_aux_loss_weight = 0.4
 
@@ -152,7 +149,8 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    optimizer_params = {"lr": 3e-4, "betas": (0.9, 0.999), "eps": 1e-8}
+    # optimizer_params = {"lr": 3e-4, "betas": (0.9, 0.999), "eps": 1e-8}
+    optimizer_params = {"lr": 5e-5, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5

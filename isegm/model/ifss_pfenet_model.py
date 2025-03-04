@@ -165,12 +165,6 @@ class PFENetModel(iFSSModel):
         # Support decoder
         self.skip_project_in_channels = 256
         self.aspp_in_channels = 2048
-        self.neck = _DeepLabHead(
-            in_channels=deeplab_ch + 32, 
-            mid_channels=deeplab_ch, 
-            out_channels=deeplab_ch,
-            norm_layer=self.norm_layer
-        )
         self.skip_project = _SkipProject(
             in_channels=self.skip_project_in_channels, 
             out_channels=32, 
@@ -183,6 +177,12 @@ class PFENetModel(iFSSModel):
             project_dropout=aspp_dropout,
             norm_layer=self.norm_layer
         )
+        self.neck = _DeepLabHead(
+            in_channels=deeplab_ch + 32, 
+            mid_channels=deeplab_ch, 
+            out_channels=deeplab_ch,
+            norm_layer=self.norm_layer
+        )
         self.head = SepConvHead(
             num_outputs=1, 
             in_channels=deeplab_ch, 
@@ -191,7 +191,7 @@ class PFENetModel(iFSSModel):
             norm_layer=norm_layer
         )
         
-        for m in [self.neck, self.skip_project, self.aspp, self.head]:
+        for m in [self.skip_project, self.aspp, self.neck, self.head]:
             if support_decoder_lr_mult > 0.0:
                 m.apply(LRMult(support_decoder_lr_mult))
             else:
@@ -205,6 +205,18 @@ class PFENetModel(iFSSModel):
         supp_feat = F.avg_pool2d(input=supp_feat, kernel_size=supp_feat.shape[-2:]) * feat_h * feat_w / area  
         return supp_feat
     
+    # TODO: Find a better fix
+    def stabilize_features(self, x, name=""):
+        with torch.no_grad():
+            if torch.isnan(x).any():
+                print(f"NaN detected in {name}")
+                x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
+            if torch.isinf(x).any():
+                print(f"Inf detected in {name}")
+                x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
+        return x
+
+    
     def support_forward(
         self, image, s_gt=None, coord_features=None, filter_threshold=0.5
     ):
@@ -215,8 +227,12 @@ class PFENetModel(iFSSModel):
                 and the click points. May or may not be provided. 
         """
         
-        # pretraining_enabled = s_gt is not None
-        pretraining_enabled = False  # ! Temporary fix
+        # TODO: Change these based on pretrain_mode
+        return_helpers = True
+        # freeze_support_decoder = False
+        freeze_support_decoder = True
+        # freeze_backbone = False
+        freeze_backbone = True
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
@@ -228,60 +244,48 @@ class PFENetModel(iFSSModel):
         supp_feat_list = []
         final_supp_list = []
         mask_list = []
-        with torch.set_grad_enabled(pretraining_enabled):  # ! Temporary fix
-            for i in range(self.shot):
-                # with torch.set_grad_enabled(True):
-                with torch.set_grad_enabled(False):  # ! Temporary fix
-                    supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
-                    if coord_features is not None:
-                        supp_feat_0 = supp_feat_0 + F.pad(
-                            coord_features,
-                            [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
-                            mode='constant', value=0
-                        )
-                    supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
-                    supp_feat_1 = self.layer1(supp_feat_0)
-                    supp_feat_2 = self.layer2(supp_feat_1)
-                    supp_feat_3 = self.layer3(supp_feat_2)
-                    
-                    mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
-                    if mask.sum() < 1e-6:
-                        mask = mask + 0.01
-                    mask_list.append(mask)
-                    mask = mask[:,:,0] # Remove extra dimensions
-                    mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
-                    supp_feat_4 = self.layer4(supp_feat_3 * mask)
-                    
-                    if not pretraining_enabled:
-                        final_supp_list.append(supp_feat_4)
+        for i in range(self.shot):
+            with torch.set_grad_enabled(not freeze_backbone):
+                supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
+                if coord_features is not None:
+                    supp_feat_0 = supp_feat_0 + F.pad(
+                        coord_features,
+                        [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
+                        mode='constant', value=0
+                    )
+                supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
+                supp_feat_1 = self.layer1(supp_feat_0)
+                supp_feat_2 = self.layer2(supp_feat_1)
+                supp_feat_3 = self.layer3(supp_feat_2)
                 
-                if not pretraining_enabled:
-                    supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
-                    supp_feat = self.down_supp(supp_feat)
-                    supp_feat = self.weighted_GAP(supp_feat, mask)
-                    supp_feat_list.append(supp_feat)
+                mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
+                if mask.sum() < 1e-6:
+                    mask = mask + 0.01
+                mask_list.append(mask.clone().detach())
+                mask = mask[:,:,0] # Remove extra dimensions
+                mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
+                supp_feat_4 = self.layer4(supp_feat_3 * mask)
                 
-                # Decoding
+                if return_helpers:
+                    final_supp_list.append(supp_feat_4.clone().detach())
+            
+            if return_helpers:
+                supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
+                supp_feat = self.down_supp(supp_feat)
+                supp_feat = self.weighted_GAP(supp_feat, mask)
+                supp_feat_list.append(supp_feat.clone().detach())
+            
+            # Decoding
+            with torch.set_grad_enabled(not freeze_support_decoder):
                 supp_feat_1 = self.skip_project(supp_feat_1)
                 x = self.aspp(supp_feat_4)
                 x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
                 x = torch.cat((x, supp_feat_1), dim=1)
                 
-                # TODO: Find a better fix
-                def stabilize_features(x, name=""):
-                    with torch.no_grad():
-                        if torch.isnan(x).any():
-                            print(f"NaN detected in {name}")
-                            x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
-                        if torch.isinf(x).any():
-                            print(f"Inf detected in {name}")
-                            x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
-                    return x
-
                 x = self.neck(x)
-                x = stabilize_features(x, "neck")
+                x = self.stabilize_features(x, "neck")
                 x = self.head(x)
-                x = stabilize_features(x, "head")
+                x = self.stabilize_features(x, "head")
                 
                 x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
                 
@@ -291,7 +295,7 @@ class PFENetModel(iFSSModel):
             "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
         }
 
-        if not pretraining_enabled:
+        if return_helpers:
             out_dir["query_helpers"] = {
                 "supp_feat_list": supp_feat_list,
                 "final_supp_list": final_supp_list,
@@ -303,10 +307,11 @@ class PFENetModel(iFSSModel):
     def query_forward(self, image, prev_output, helpers):
         """
         Args:
-            - prev_output: logits
+            - prev_output: sigmoided
         """
+        freeze_backbone = False
+        
         # TODO: Merge previous output with the current image
-        prev_output = torch.sigmoid(prev_output)
         x = self.query_input(torch.cat((image, prev_output), dim=1))
 
         x_size = x.size()
@@ -315,7 +320,7 @@ class PFENetModel(iFSSModel):
         w = int((x_size[3] - 1) / 8 * self.zoom_factor + 1)
         
         # Query Feature
-        with torch.set_grad_enabled(False):  # TODO: Play with this
+        with torch.set_grad_enabled(not freeze_backbone):
             query_feat_0 = self.layer0['pre_maxpool'](x)
             query_feat_0 = self.layer0['maxpool'](query_feat_0)
             query_feat_1 = self.layer1(query_feat_0)
@@ -328,6 +333,8 @@ class PFENetModel(iFSSModel):
         
         # Merging with support features
         corr_query_mask_list = []
+        
+        # Already detached in support_forward
         supp_feat_list = helpers["supp_feat_list"]
         final_supp_list = helpers["final_supp_list"]
         mask_list = helpers["mask_list"]
@@ -397,13 +404,19 @@ class PFENetModel(iFSSModel):
                  
         query_feat = torch.cat(pyramid_feat_list, 1)
         query_feat = self.res1(query_feat)
+        query_feat = self.stabilize_features(query_feat, "res1")
+        
         query_feat = self.res2(query_feat) + query_feat           
+        out = self.stabilize_features(query_feat, "res2")
+        
         out = self.cls(query_feat)
+        out = self.stabilize_features(out, "cls")
         
         if self.zoom_factor != 1:
             out = F.interpolate(out, size=(h, w), mode='bilinear', align_corners=True)
         
-        return { "masks": out.max(1)[1].unsqueeze(1) }
+        # return { "masks": out.max(1)[1].unsqueeze(1) }
+        return { "masks": out[1].unsqueeze(1) }
     
         # TODO: Auxilary loss later
         if self.training:
