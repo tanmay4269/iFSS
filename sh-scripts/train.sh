@@ -1,5 +1,14 @@
 export DEBUG=1
 
+# python train.py \
+#     models/ifss_models/pfenet_sbd_ifss.py \
+#     --gpus=0 \
+#     --workers=1 \
+#     --batch-size=4 \
+#     --exp-name=debug \
+#     --debug=one_batch_overfit \
+#     --pretrain-mode
+
 python train.py \
     models/ifss_models/pfenet_sbd_ifss.py \
     --gpus=0 \
@@ -7,7 +16,8 @@ python train.py \
     --batch-size=4 \
     --exp-name=debug \
     --debug=one_batch_overfit \
-    # --pretrain-mode \ 
+    # --pretrain-mode \
+    # --weights="weights/pfenet_ifss_pretraining.pth"
 
 # python train.py \
 #     models/ifss_models/hrnet18_sbd_ifss.py \
@@ -18,13 +28,13 @@ python train.py \
 #     --pretrain-mode \
 #     --debug=one_batch_overfit
 
-python train.py \
-    models/ifss_models/pfenet_sbd_ifss.py \
-    --gpus=0 \
-    --workers=8 \
-    --batch-size=22 \
-    --pretrain-mode \
-    --exp-name=expt-00
+# python train.py \
+#     models/ifss_models/pfenet_sbd_ifss.py \
+#     --gpus=0 \
+#     --workers=8 \
+#     --batch-size=22 \
+#     --pretrain-mode \
+#     --exp-name=expt-00
 
 # python train.py \
 #     models/ifss_models/hrnet18_sbd_ifss.py \

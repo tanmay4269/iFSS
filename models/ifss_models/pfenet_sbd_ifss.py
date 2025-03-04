@@ -35,7 +35,8 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0,
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,  # TODO: Experiment with non-zero
+        support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
     model.to(cfg.device)
@@ -60,7 +61,10 @@ def train(model, cfg, model_cfg):
     loss_cfg = edict()
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
     loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.s_instance_loss_weight = 1.0
+    if cfg.pretrain_mode:
+        loss_cfg.s_instance_loss_weight = 0.1
+    else:
+        loss_cfg.s_instance_loss_weight = 1.0
     # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     # loss_cfg.s_instance_aux_loss_weight = 0.4
 
@@ -73,19 +77,19 @@ def train(model, cfg, model_cfg):
 
     train_augmentator = Compose(
         [
-            UniformRandomResize(scale_range=(0.75, 1.25)),
-            Flip(),
-            RandomRotate90(),
-            ShiftScaleRotate(border_mode=0, p=0.75),
+            # UniformRandomResize(scale_range=(0.75, 1.25)),
+            # Flip(),
+            # RandomRotate90(),
+            # ShiftScaleRotate(border_mode=0, p=0.75),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            RandomCrop(*crop_size),
-            # CenterCrop(*crop_size),
-            RandomBrightnessContrast(),
-            RGBShift(
-                r_shift_limit=(-10, 10),
-                g_shift_limit=(-10, 10),
-                b_shift_limit=(-10, 10),
-            ),
+            # RandomCrop(*crop_size),
+            CenterCrop(*crop_size),
+            # RandomBrightnessContrast(),
+            # RGBShift(
+            #     r_shift_limit=(-10, 10),
+            #     g_shift_limit=(-10, 10),
+            #     b_shift_limit=(-10, 10),
+            # ),
             # HueSaturationValue(p=0.25),
             # GaussianBlur(p=0.25),
             Normalize(

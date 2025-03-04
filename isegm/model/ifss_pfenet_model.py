@@ -27,7 +27,8 @@ class PFENetModel(iFSSModel):
         deeplab_ch=256, 
         aspp_dropout=0.5,
         backbone_norm_layer=None, 
-        backbone_lr_mult=0.1, 
+        backbone_lr_mult=0.0, 
+        support_decoder_lr_mult=0.0,
         norm_layer=nn.BatchNorm2d,
         **kwargs
     ):
@@ -81,11 +82,12 @@ class PFENetModel(iFSSModel):
             elif 'downsample.0' in n:
                 m.stride = (1, 1)
                 
-        self.layer0.apply(LRMult(backbone_lr_mult))
-        self.layer1.apply(LRMult(backbone_lr_mult))
-        self.layer2.apply(LRMult(backbone_lr_mult))
-        self.layer3.apply(LRMult(backbone_lr_mult))
-        self.layer4.apply(LRMult(backbone_lr_mult))
+        for m in [self.layer0, self.layer1, self.layer2, self.layer3, self.layer4]:
+            if backbone_lr_mult > 0.0:
+                m.apply(LRMult(backbone_lr_mult))
+            else:
+                for param in m.parameters():
+                    param.requires_grad = False
         
         # TODO: Rename these to something more meaningful
         classes = 2
@@ -189,6 +191,13 @@ class PFENetModel(iFSSModel):
             norm_layer=norm_layer
         )
         
+        for m in [self.neck, self.skip_project, self.aspp, self.head]:
+            if support_decoder_lr_mult > 0.0:
+                m.apply(LRMult(support_decoder_lr_mult))
+            else:
+                for param in m.parameters():
+                    param.requires_grad = False
+        
     def weighted_GAP(self, supp_feat, mask):
         supp_feat = supp_feat * mask
         feat_h, feat_w = supp_feat.shape[-2:][0], supp_feat.shape[-2:][1]
@@ -207,7 +216,7 @@ class PFENetModel(iFSSModel):
         """
         
         # pretraining_enabled = s_gt is not None
-        pretraining_enabled = False
+        pretraining_enabled = False  # ! Temporary fix
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
@@ -219,62 +228,64 @@ class PFENetModel(iFSSModel):
         supp_feat_list = []
         final_supp_list = []
         mask_list = []
-        for i in range(self.shot):
-            with torch.set_grad_enabled(True):
-                supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
-                if coord_features is not None:
-                    supp_feat_0 = supp_feat_0 + F.pad(
-                        coord_features,
-                        [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
-                        mode='constant', value=0
-                    )
-                supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
-                
-                supp_feat_1 = self.layer1(supp_feat_0)
-                supp_feat_2 = self.layer2(supp_feat_1)
-                supp_feat_3 = self.layer3(supp_feat_2)
-                
-                mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
-                if mask.sum() < 1e-6:
-                    mask = mask + 0.01
-                mask_list.append(mask)
-                mask = mask[:,:,0] # Remove extra dimensions
-                mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
-                supp_feat_4 = self.layer4(supp_feat_3 * mask)
+        with torch.set_grad_enabled(pretraining_enabled):  # ! Temporary fix
+            for i in range(self.shot):
+                # with torch.set_grad_enabled(True):
+                with torch.set_grad_enabled(False):  # ! Temporary fix
+                    supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
+                    if coord_features is not None:
+                        supp_feat_0 = supp_feat_0 + F.pad(
+                            coord_features,
+                            [0, 0, 0, 0, 0, supp_feat_0.size(1) - coord_features.size(1)],
+                            mode='constant', value=0
+                        )
+                    supp_feat_0 = self.layer0['maxpool'](supp_feat_0)
+                    supp_feat_1 = self.layer1(supp_feat_0)
+                    supp_feat_2 = self.layer2(supp_feat_1)
+                    supp_feat_3 = self.layer3(supp_feat_2)
+                    
+                    mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
+                    if mask.sum() < 1e-6:
+                        mask = mask + 0.01
+                    mask_list.append(mask)
+                    mask = mask[:,:,0] # Remove extra dimensions
+                    mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
+                    supp_feat_4 = self.layer4(supp_feat_3 * mask)
+                    
+                    if not pretraining_enabled:
+                        final_supp_list.append(supp_feat_4)
                 
                 if not pretraining_enabled:
-                    final_supp_list.append(supp_feat_4)
-            
-            if not pretraining_enabled:
-                supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
-                supp_feat = self.down_supp(supp_feat)
-                supp_feat = self.weighted_GAP(supp_feat, mask)
-                supp_feat_list.append(supp_feat)
-            
-            # Decoding
-            supp_feat_1 = self.skip_project(supp_feat_1)
-            x = self.aspp(supp_feat_4)
-            x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
-            x = torch.cat((x, supp_feat_1), dim=1)
-            
-            def stabilize_features(x, name=""):
-                with torch.no_grad():
-                    if torch.isnan(x).any():
-                        print(f"NaN detected in {name}")
-                        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
-                    if torch.isinf(x).any():
-                        print(f"Inf detected in {name}")
-                        x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
-                return x
+                    supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
+                    supp_feat = self.down_supp(supp_feat)
+                    supp_feat = self.weighted_GAP(supp_feat, mask)
+                    supp_feat_list.append(supp_feat)
+                
+                # Decoding
+                supp_feat_1 = self.skip_project(supp_feat_1)
+                x = self.aspp(supp_feat_4)
+                x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
+                x = torch.cat((x, supp_feat_1), dim=1)
+                
+                # TODO: Find a better fix
+                def stabilize_features(x, name=""):
+                    with torch.no_grad():
+                        if torch.isnan(x).any():
+                            print(f"NaN detected in {name}")
+                            x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
+                        if torch.isinf(x).any():
+                            print(f"Inf detected in {name}")
+                            x = torch.where(torch.isinf(x), torch.zeros_like(x), x)
+                    return x
 
-            x = self.neck(x)
-            x = stabilize_features(x, "neck")
-            x = self.head(x)
-            x = stabilize_features(x, "head")
-            
-            x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
-            
-            decoder_outputs.append(x)
+                x = self.neck(x)
+                x = stabilize_features(x, "neck")
+                x = self.head(x)
+                x = stabilize_features(x, "head")
+                
+                x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
+                
+                decoder_outputs.append(x)
         
         out_dir = {
             "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot

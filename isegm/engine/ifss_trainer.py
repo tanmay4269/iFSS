@@ -233,6 +233,9 @@ class iFSSTrainer(object):
                     f"Epoch {epoch}, training loss {train_loss/(i+1):.4f}"
                 )
                 for metric in self.train_metrics:
+                    if metric.name not in ["support_iou", "query_iou"]:
+                        continue
+                    
                     metric.log_states(
                         self.sw, f"{log_prefix}Metrics/{metric.name}", global_step
                     )
@@ -241,6 +244,9 @@ class iFSSTrainer(object):
 
         if self.is_master:
             for metric in self.train_metrics:
+                if metric.name not in ["support_iou", "query_iou"]:
+                    continue
+                
                 self.sw.add_scalar(
                     tag=f"{log_prefix}Metrics/{metric.name}",
                     value=metric.get_epoch_value(),
@@ -321,6 +327,9 @@ class iFSSTrainer(object):
                     f"Epoch {epoch}, validation loss: {val_loss/(i + 1):.4f}"
                 )
                 for metric in self.val_metrics:
+                    if metric.name not in ["support_iou", "query_iou"]:
+                        continue
+                    
                     metric.log_states(
                         self.sw, f"{log_prefix}Metrics/{metric.name}", global_step
                     )
@@ -336,6 +345,9 @@ class iFSSTrainer(object):
                 )
 
             for metric in self.val_metrics:
+                if metric.name not in ["support_iou", "query_iou"]:
+                    continue
+                
                 self.sw.add_scalar(
                     tag=f"{log_prefix}Metrics/{metric.name}",
                     value=metric.get_epoch_value(),
