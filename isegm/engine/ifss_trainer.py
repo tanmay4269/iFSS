@@ -371,7 +371,7 @@ class iFSSTrainer(object):
             query.prev_output = torch.zeros_like(query.image, dtype=torch.float32)[:, :1, :, :]
 
             last_click_indx = None
-            with torch.no_grad():
+            with torch.no_grad():  # ! Need to consider this intearction
                 if self.cfg.debug == "one_batch_overfit":
                     num_iters = self.max_num_next_clicks
                 else:
@@ -383,10 +383,7 @@ class iFSSTrainer(object):
                     if not validation:
                         self.net.eval()
 
-                    if (
-                        self.click_models is None 
-                        or click_indx >= len(self.click_models)
-                    ):
+                    if (self.click_models is None or click_indx >= len(self.click_models)):
                         eval_model = self.net
                     else:
                         eval_model = self.click_models[click_indx]
@@ -460,6 +457,16 @@ class iFSSTrainer(object):
                     validation,
                     lambda: (outputs["q_masks_aux"], batch_data["q_masks"]),
                 )
+                
+            if "q_masks_aux_list" in outputs:
+                for mask in outputs["q_masks_aux_list"]:
+                    loss = self.add_loss(
+                        "q_mask_aux_loss",
+                        loss,
+                        losses_logging,
+                        validation,
+                        lambda: (mask, batch_data["q_masks"]),
+                    )
 
             if self.is_master:
                 with torch.no_grad():
@@ -620,7 +627,7 @@ class iFSSTrainer(object):
             assert len(checkpoints) == 1
 
             checkpoint_path = checkpoints[0]
-            logger.info(f"Load checkpoint from path: {checkpoint_path}")
+            logger.info(f"Loaded checkpoint from path: {checkpoint_path}")
             load_weights(net, str(checkpoint_path))
         return net
 

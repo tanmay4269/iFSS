@@ -139,7 +139,7 @@ class iFSSModel(nn.Module):
 
         if not pretraining_enabled:
             helpers = s_outputs.pop("query_helpers", None)
-            if helpers is None:
+            if helpers is None:  # For hrnet-ifss version
                 helpers = s_outputs["prototypes"]
             else:
                 helpers["q_gt"] = q_inputs.gt
@@ -164,21 +164,22 @@ class iFSSModel(nn.Module):
                 align_corners=True,
             )
 
-        if self.with_aux_output:
-            s_outputs["instances_aux"] = nn.functional.interpolate(
-                s_outputs["instances_aux"],
-                size=s_image.size()[2:],
-                mode="bilinear",
-                align_corners=True,
-            )
+        # Removed for PFENet-iFSS
+        # if self.with_aux_output:
+        #     s_outputs["instances_aux"] = nn.functional.interpolate(
+        #         s_outputs["instances_aux"],
+        #         size=s_image.size()[2:],
+        #         mode="bilinear",
+        #         align_corners=True,
+        #     )
 
-            if not pretraining_enabled:
-                q_outputs["masks_aux"] = nn.functional.interpolate(
-                    q_outputs["masks_aux"],
-                    size=q_inputs.image.size()[2:],
-                    mode="bilinear",
-                    align_corners=True,
-                )
+        #     if not pretraining_enabled:
+        #         q_outputs["masks_aux"] = nn.functional.interpolate(
+        #             q_outputs["masks_aux"],
+        #             size=q_inputs.image.size()[2:],
+        #             mode="bilinear",
+        #             align_corners=True,
+        #         )
 
         outputs = {}
         for k, v in s_outputs.items():

@@ -30,12 +30,12 @@ def init_model(cfg):
     model_cfg.num_max_points = 24
 
     model = PFENetModel(
-        with_aux_output=False,
+        with_aux_output=True,
         use_rgb_conv=False,
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.5,  # TODO: Experiment with non-zero
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
         support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
@@ -69,8 +69,8 @@ def train(model, cfg, model_cfg):
         # loss_cfg.q_mask_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
         loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
         loss_cfg.q_mask_loss_weight = 1.0
-        # loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
-        # loss_cfg.q_mask_aux_loss_weight = 0.4
+        loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
+        loss_cfg.q_mask_aux_loss_weight = 0.4
 
     train_augmentator = Compose(
         [
@@ -149,8 +149,8 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    # optimizer_params = {"lr": 3e-4, "betas": (0.9, 0.999), "eps": 1e-8}
-    optimizer_params = {"lr": 5e-5, "betas": (0.9, 0.999), "eps": 1e-8}
+    lr = 3e-4 * (80/22)
+    optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(
         torch.optim.lr_scheduler.MultiStepLR, milestones=[50], gamma=0.5
@@ -179,4 +179,4 @@ def train(model, cfg, model_cfg):
         max_interactive_points=model_cfg.num_max_points,
         max_num_next_clicks=3,
     )
-    trainer.run(num_epochs=220)
+    trainer.run(num_epochs=1000)

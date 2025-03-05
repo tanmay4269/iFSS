@@ -229,10 +229,7 @@ class PFENetModel(iFSSModel):
         
         # TODO: Change these based on pretrain_mode
         return_helpers = True
-        # freeze_support_decoder = False
-        freeze_support_decoder = True
-        # freeze_backbone = False
-        freeze_backbone = True
+        pretraining_enabled = False
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
@@ -245,7 +242,7 @@ class PFENetModel(iFSSModel):
         final_supp_list = []
         mask_list = []
         for i in range(self.shot):
-            with torch.set_grad_enabled(not freeze_backbone):
+            with torch.set_grad_enabled(pretraining_enabled):
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
                 if coord_features is not None:
                     supp_feat_0 = supp_feat_0 + F.pad(
@@ -261,22 +258,25 @@ class PFENetModel(iFSSModel):
                 mask = (s_y[:,i,:,:] == 1).float().unsqueeze(1)
                 if mask.sum() < 1e-6:
                     mask = mask + 0.01
-                mask_list.append(mask.clone().detach())
+                mask_list.append(mask.detach())
                 mask = mask[:,:,0] # Remove extra dimensions
                 mask = F.interpolate(mask, size=(supp_feat_3.size(2), supp_feat_3.size(3)), mode='bilinear', align_corners=True)
                 supp_feat_4 = self.layer4(supp_feat_3 * mask)
                 
                 if return_helpers:
-                    final_supp_list.append(supp_feat_4.clone().detach())
+                    final_supp_list.append(supp_feat_4.detach())
             
             if return_helpers:
-                supp_feat = torch.cat([supp_feat_3, supp_feat_2], 1)
+                supp_feat = torch.cat([
+                    supp_feat_3.detach(), 
+                    supp_feat_2.detach()
+                ], 1)
                 supp_feat = self.down_supp(supp_feat)
                 supp_feat = self.weighted_GAP(supp_feat, mask)
-                supp_feat_list.append(supp_feat.clone().detach())
+                supp_feat_list.append(supp_feat)
             
             # Decoding
-            with torch.set_grad_enabled(not freeze_support_decoder):
+            with torch.set_grad_enabled(pretraining_enabled):
                 supp_feat_1 = self.skip_project(supp_feat_1)
                 x = self.aspp(supp_feat_4)
                 x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
@@ -309,7 +309,7 @@ class PFENetModel(iFSSModel):
         Args:
             - prev_output: sigmoided
         """
-        freeze_backbone = False
+        train_backbone = False
         
         # TODO: Merge previous output with the current image
         x = self.query_input(torch.cat((image, prev_output), dim=1))
@@ -320,7 +320,7 @@ class PFENetModel(iFSSModel):
         w = int((x_size[3] - 1) / 8 * self.zoom_factor + 1)
         
         # Query Feature
-        with torch.set_grad_enabled(not freeze_backbone):
+        with torch.set_grad_enabled(train_backbone):
             query_feat_0 = self.layer0['pre_maxpool'](x)
             query_feat_0 = self.layer0['maxpool'](query_feat_0)
             query_feat_1 = self.layer1(query_feat_0)
@@ -400,7 +400,14 @@ class PFENetModel(iFSSModel):
             inner_out_bin = self.inner_cls[idx](merge_feat_bin)
             merge_feat_bin = F.interpolate(merge_feat_bin, size=(query_feat.size(2), query_feat.size(3)), mode='bilinear', align_corners=True)
             pyramid_feat_list.append(merge_feat_bin)
-            out_list.append(inner_out_bin)
+            out_list.append(
+                F.interpolate(
+                    inner_out_bin[:, 1].unsqueeze(1), 
+                    size=(h, w), 
+                    mode='bilinear', 
+                    align_corners=True
+                )
+            )
                  
         query_feat = torch.cat(pyramid_feat_list, 1)
         query_feat = self.res1(query_feat)
@@ -415,26 +422,10 @@ class PFENetModel(iFSSModel):
         if self.zoom_factor != 1:
             out = F.interpolate(out, size=(h, w), mode='bilinear', align_corners=True)
         
-        # return { "masks": out.max(1)[1].unsqueeze(1) }
-        return { "masks": out[1].unsqueeze(1) }
-    
-        # TODO: Auxilary loss later
+        out_dict = { "masks": out[:, 1].unsqueeze(1) }
         if self.training:
-            y = helpers["q_gt"]
-            main_loss = self.criterion(out, y.long())
-            aux_loss = torch.zeros_like(main_loss).cuda()    
-
-            for idx_k in range(len(out_list)):    
-                inner_out = out_list[idx_k]
-                inner_out = F.interpolate(inner_out, size=(h, w), mode='bilinear', align_corners=True)
-                aux_loss = aux_loss + self.criterion(inner_out, y.long())   
-            aux_loss = aux_loss / len(out_list)
-            return {
-                "masks": out.max(1)[1],
-                "losses": [main_loss, aux_loss]
-            }
-        else:
-            return { "masks": out }
+            out_dict["masks_aux_list"] = out_list
+        return out_dict
 
 if __name__ == "__main__":
     import torch
