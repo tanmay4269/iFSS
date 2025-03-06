@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.1,
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
         support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
@@ -102,7 +102,8 @@ def train(model, cfg, model_cfg):
         [
             UniformRandomResize(scale_range=(0.75, 1.25)),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            RandomCrop(*crop_size),
+            # RandomCrop(*crop_size),
+            CenterCrop(*crop_size),
             Normalize(
                 mean=(0.485, 0.456, 0.406), 
                 std=(0.229, 0.224, 0.225), 
@@ -149,7 +150,6 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    # lr = 3e-4 * (80/22)
     lr = 3e-4
     optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 

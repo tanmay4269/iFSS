@@ -87,7 +87,7 @@ class iFSSTrainer(object):
         shuffle = not (cfg.debug == "one_batch_overfit")
         self.train_data = DataLoader(
             trainset,
-            cfg.batch_size // 2,  # ! Temporary hack
+            cfg.batch_size,
             sampler=get_sampler(trainset, shuffle=shuffle, distributed=cfg.distributed),
             drop_last=True,
             pin_memory=True,
@@ -96,7 +96,7 @@ class iFSSTrainer(object):
 
         self.val_data = DataLoader(
             valset,
-            cfg.val_batch_size // 2,  # ! Temporary hack
+            cfg.val_batch_size,
             sampler=get_sampler(valset, shuffle=False, distributed=cfg.distributed),
             drop_last=True,
             pin_memory=True,
@@ -371,6 +371,8 @@ class iFSSTrainer(object):
             query.prev_output = torch.zeros_like(query.image, dtype=torch.float32)[:, :1, :, :]
 
             last_click_indx = None
+            model_was_training = self.net.training
+            self.net.eval()
             with torch.no_grad():  # ! Need to consider this intearction
                 if self.cfg.debug == "one_batch_overfit":
                     num_iters = self.max_num_next_clicks
@@ -380,8 +382,8 @@ class iFSSTrainer(object):
                 for click_indx in range(num_iters):
                     last_click_indx = click_indx
 
-                    if not validation:
-                        self.net.eval()
+                    # if not validation:
+                    #     self.net.eval()
 
                     if (self.click_models is None or click_indx >= len(self.click_models)):
                         eval_model = self.net
@@ -399,8 +401,8 @@ class iFSSTrainer(object):
                         support.prev_output, support.gt, support.points, click_indx + 1
                     )
 
-                    if not validation:
-                        self.net.train()
+                    # if not validation:
+                    #     self.net.train()
 
                 if (
                     self.net.with_prev_mask
@@ -418,6 +420,9 @@ class iFSSTrainer(object):
                         support.prev_output[zero_mask]
                     )
 
+            if model_was_training and not validation:
+                self.net.train()
+                
             batch_data["s_points"] = support.points
             outputs = self.net(support, query, self.pretraining_enabled)
 

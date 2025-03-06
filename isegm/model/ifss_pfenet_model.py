@@ -229,7 +229,7 @@ class PFENetModel(iFSSModel):
         
         # TODO: Change these based on pretrain_mode
         return_helpers = True
-        train_backbone = True
+        train_backbone = False
         train_decoder = False
         
         # ! Temporary fix
@@ -310,7 +310,7 @@ class PFENetModel(iFSSModel):
         Args:
             - prev_output: sigmoided
         """
-        train_backbone = True
+        train_backbone = False
         
         # TODO: Merge previous output with the current image
         x = self.query_input(torch.cat((image, prev_output), dim=1))
