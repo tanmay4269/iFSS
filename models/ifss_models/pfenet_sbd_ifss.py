@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.1,
         support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
@@ -149,7 +149,8 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    lr = 3e-4 * (80/22)
+    # lr = 3e-4 * (80/22)
+    lr = 3e-4
     optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(

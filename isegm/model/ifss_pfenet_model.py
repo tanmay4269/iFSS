@@ -229,7 +229,8 @@ class PFENetModel(iFSSModel):
         
         # TODO: Change these based on pretrain_mode
         return_helpers = True
-        pretraining_enabled = False
+        train_backbone = True
+        train_decoder = False
         
         # ! Temporary fix
         s_x = image.unsqueeze(1)
@@ -242,7 +243,7 @@ class PFENetModel(iFSSModel):
         final_supp_list = []
         mask_list = []
         for i in range(self.shot):
-            with torch.set_grad_enabled(pretraining_enabled):
+            with torch.set_grad_enabled(train_backbone):
                 supp_feat_0 = self.layer0['pre_maxpool'](s_x[:,i,:,:,:])
                 if coord_features is not None:
                     supp_feat_0 = supp_feat_0 + F.pad(
@@ -276,7 +277,7 @@ class PFENetModel(iFSSModel):
                 supp_feat_list.append(supp_feat)
             
             # Decoding
-            with torch.set_grad_enabled(pretraining_enabled):
+            with torch.set_grad_enabled(train_decoder):
                 supp_feat_1 = self.skip_project(supp_feat_1)
                 x = self.aspp(supp_feat_4)
                 x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
@@ -309,7 +310,7 @@ class PFENetModel(iFSSModel):
         Args:
             - prev_output: sigmoided
         """
-        train_backbone = False
+        train_backbone = True
         
         # TODO: Merge previous output with the current image
         x = self.query_input(torch.cat((image, prev_output), dim=1))
