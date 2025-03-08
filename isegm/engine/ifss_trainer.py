@@ -382,9 +382,6 @@ class iFSSTrainer(object):
                 for click_indx in range(num_iters):
                     last_click_indx = click_indx
 
-                    # if not validation:
-                    #     self.net.eval()
-
                     if (self.click_models is None or click_indx >= len(self.click_models)):
                         eval_model = self.net
                     else:
@@ -400,9 +397,6 @@ class iFSSTrainer(object):
                     support.points = get_next_points(
                         support.prev_output, support.gt, support.points, click_indx + 1
                     )
-
-                    # if not validation:
-                    #     self.net.train()
 
                 if (
                     self.net.with_prev_mask

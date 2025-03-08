@@ -97,8 +97,9 @@
                 "--workers=1",
                 "--batch-size=4", 
                 "--exp-name=debug",
+                "--debug=one_batch_overfit",
+                "--weights=weights/pfenet_ifss_pretraining.pth",
                 // "--pretrain-mode",
-                "--debug=one_batch_overfit"
             ],
             "env": {
                 "DEBUG":"1",

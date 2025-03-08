@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.1,
         support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     

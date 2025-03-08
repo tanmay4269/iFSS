@@ -1,4 +1,3 @@
-conda activate iFSS
 export DEBUG=1
 
 # python train.py \
@@ -15,9 +14,9 @@ python train.py \
     --gpus=0 \
     --workers=1 \
     --batch-size=4 \
-    --weights="weights/pfenet_ifss_pretraining.pth" \
-    --exp-name=debug \
+    --exp-name=debug-b4 \
     --debug=one_batch_overfit \
+    --weights="weights/pfenet_ifss_pretraining.pth" \
     # --pretrain-mode \
 
 # python train.py \

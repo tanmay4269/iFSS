@@ -237,7 +237,7 @@ class PFENetModel(iFSSModel):
         s_y = s_gt.unsqueeze(1)  # !!! When s_gt is None, use the self generated mask instead
         
         # Support Feature
-        # ! Improve this code: presentation and performance
+        # TODO: Improve this code: presentation and performance
         decoder_outputs = []
         supp_feat_list = []
         final_supp_list = []
@@ -340,8 +340,13 @@ class PFENetModel(iFSSModel):
         final_supp_list = helpers["final_supp_list"]
         mask_list = helpers["mask_list"]
         
+        if torch.is_grad_enabled():
+            final_supp_list = [f.requires_grad_() for f in final_supp_list]
+            mask_list = [f.requires_grad_() for f in mask_list]
+        
         cosine_eps = 1e-7
         for i, tmp_supp_feat in enumerate(final_supp_list):
+            tmp_supp_feat = tmp_supp_feat
             resize_size = tmp_supp_feat.size(2)
             tmp_mask = mask_list[i]
             tmp_mask = tmp_mask[:, :, 0]
