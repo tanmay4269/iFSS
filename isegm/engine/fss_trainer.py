@@ -21,7 +21,7 @@ from isegm.utils.distributed import get_dp_wrapper, get_sampler, reduce_loss_dic
 from .optimizer import get_optimizer
 
 
-class iFSSTrainer(object):
+class FSSTrainer(object):
     def __init__(
         self,
         model,
@@ -370,74 +370,74 @@ class iFSSTrainer(object):
             support.prev_output = torch.zeros_like(support.image, dtype=torch.float32)[:, :1, :, :]
             query.prev_output = torch.zeros_like(query.image, dtype=torch.float32)[:, :1, :, :]
 
-            last_click_indx = None
-            model_was_training = self.net.training
-            self.net.eval()
-            with torch.no_grad():  # ! Need to consider this intearction
-                if self.cfg.debug == "one_batch_overfit":
-                    num_iters = self.max_num_next_clicks
-                else:
-                    num_iters = random.randint(0, self.max_num_next_clicks)
+            # last_click_indx = None
+            # model_was_training = self.net.training
+            # self.net.eval()
+            # with torch.no_grad():  # ! Need to consider this intearction
+            #     if self.cfg.debug == "one_batch_overfit":
+            #         num_iters = self.max_num_next_clicks
+            #     else:
+            #         num_iters = random.randint(0, self.max_num_next_clicks)
 
-                for click_indx in range(num_iters):
-                    last_click_indx = click_indx
+            #     for click_indx in range(num_iters):
+            #         last_click_indx = click_indx
 
-                    if (self.click_models is None or click_indx >= len(self.click_models)):
-                        eval_model = self.net
-                    else:
-                        eval_model = self.click_models[click_indx]
+            #         if (self.click_models is None or click_indx >= len(self.click_models)):
+            #             eval_model = self.net
+            #         else:
+            #             eval_model = self.click_models[click_indx]
 
-                    outputs = eval_model(support, query, self.pretraining_enabled)
+            #         outputs = eval_model(support, query, self.pretraining_enabled)
 
-                    # For next iteration
-                    support.prev_output = torch.sigmoid(outputs["s_instances"])
-                    if not self.pretraining_enabled:
-                        query.prev_output = torch.sigmoid(outputs["q_masks"])
+            #         # For next iteration
+            #         support.prev_output = torch.sigmoid(outputs["s_instances"])
+            #         if not self.pretraining_enabled:
+            #             query.prev_output = torch.sigmoid(outputs["q_masks"])
 
-                    support.points = get_next_points(
-                        support.prev_output, support.gt, support.points, click_indx + 1
-                    )
+            #         support.points = get_next_points(
+            #             support.prev_output, support.gt, support.points, click_indx + 1
+            #         )
 
-                if (
-                    self.net.with_prev_mask
-                    and self.prev_mask_drop_prob > 0
-                    and last_click_indx is not None
-                ):
-                    if self.cfg.debug == "one_batch_overfit":
-                        zero_mask = torch.zeros_like(support.prev_output[:, :1, :, :]).bool()
-                    else:
-                        zero_mask = (
-                            np.random.random(size=support.prev_output.size(0))
-                            < self.prev_mask_drop_prob
-                        )
-                    support.prev_output[zero_mask] = torch.zeros_like(
-                        support.prev_output[zero_mask]
-                    )
+            #     if (
+            #         self.net.with_prev_mask
+            #         and self.prev_mask_drop_prob > 0
+            #         and last_click_indx is not None
+            #     ):
+            #         if self.cfg.debug == "one_batch_overfit":
+            #             zero_mask = torch.zeros_like(support.prev_output[:, :1, :, :]).bool()
+            #         else:
+            #             zero_mask = (
+            #                 np.random.random(size=support.prev_output.size(0))
+            #                 < self.prev_mask_drop_prob
+            #             )
+            #         support.prev_output[zero_mask] = torch.zeros_like(
+            #             support.prev_output[zero_mask]
+            #         )
 
-            if model_was_training and not validation:
-                self.net.train()
+            # if model_was_training and not validation:
+            #     self.net.train()
                 
-            batch_data["s_points"] = support.points
+            # batch_data["s_points"] = support.points
             outputs = self.net(support, query, self.pretraining_enabled)
 
             # TODO: Write a new method for this
             loss = 0.0
-            loss = self.add_loss(
-                "s_instance_loss",
-                loss,
-                losses_logging,
-                validation,
-                lambda: (outputs["s_instances"], batch_data["s_instances"]),
-            )
+            # loss = self.add_loss(
+            #     "s_instance_loss",
+            #     loss,
+            #     losses_logging,
+            #     validation,
+            #     lambda: (outputs["s_instances"], batch_data["s_instances"]),
+            # )
 
-            if "s_instances_aux" in outputs:
-                loss = self.add_loss(
-                    "s_instance_aux_loss",
-                    loss,
-                    losses_logging,
-                    validation,
-                    lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
-                )
+            # if "s_instances_aux" in outputs:
+            #     loss = self.add_loss(
+            #         "s_instance_aux_loss",
+            #         loss,
+            #         losses_logging,
+            #         validation,
+            #         lambda: (outputs["s_instances_aux"], batch_data["s_instances"]),
+            #     )
 
             if "q_masks" in outputs:
                 loss = self.add_loss(
@@ -458,14 +458,14 @@ class iFSSTrainer(object):
                 )
                 
             if "q_masks_aux_list" in outputs:
-                loss_cfg = self.loss_cfg if not validation else self.val_loss_cfg
-                loss_criterion = loss_cfg.get("q_mask_aux_loss")
-                loss_weight = loss_cfg.get("q_mask_aux_loss_weight", 0.0)
                 q_aux_loss = torch.zeros_like(loss)
+                loss_cfg = self.loss_cfg if not validation else self.val_loss_cfg
+                loss_weight = loss_cfg.get("q_mask_aux_loss_weight", 0.0)
+                loss_criterion = loss_cfg.get("q_mask_aux_loss")
                 if loss_weight > 0.0:
                     for mask in outputs["q_masks_aux_list"]:
                         mask_loss = loss_criterion(mask, batch_data["q_masks"])
-                        mask_loss = torch.mean(loss)
+                        mask_loss = torch.mean(mask_loss)
                         q_aux_loss = q_aux_loss + mask_loss
                         
                     q_aux_loss = q_aux_loss / len(outputs["q_masks_aux_list"])
@@ -473,7 +473,6 @@ class iFSSTrainer(object):
                 
                 loss = loss + q_aux_loss
                 losses_logging["q_mask_aux_loss"] = q_aux_loss
-
 
             if self.is_master:
                 with torch.no_grad():

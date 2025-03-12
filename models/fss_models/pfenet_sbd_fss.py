@@ -3,18 +3,18 @@ from functools import partial
 from easydict import EasyDict as edict
 from albumentations import *
 
-from isegm.engine.ifss_trainer import iFSSTrainer
+from isegm.engine.fss_trainer import FSSTrainer
 
 from isegm.model import initializer
 from isegm.model.losses import *
 from isegm.model.metrics import AdaptiveIoU
-from isegm.model.ifss_pfenet_model import ModifiedPFENetModel
+from isegm.model.fss_pfenet_model import PFENetModel
 
 from isegm.data.transforms import *
 from isegm.data.points_sampler import MultiPointSampler
 from isegm.data.datasets.fss_sbd import iFSS_SBD_Dataset
 
-MODEL_NAME = "sbd_pfenet_ifss"
+MODEL_NAME = "sbd_pfenet_fss"
 
 
 def main(cfg):
@@ -29,14 +29,13 @@ def init_model(cfg):
     
     model_cfg.num_max_points = 24
 
-    model = ModifiedPFENetModel(
+    model = PFENetModel(
         with_aux_output=True,
         use_rgb_conv=False,
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
         backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.1,
-        support_decoder_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
     model.to(cfg.device)
@@ -60,8 +59,8 @@ def train(model, cfg, model_cfg):
 
     loss_cfg = edict()
     # loss_cfg.s_instance_loss = NormalizedFocalLossSigmoid(alpha=0.5, gamma=2)
-    loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
-    loss_cfg.s_instance_loss_weight = 1.0 if cfg.pretrain_mode else 1e-6
+    # loss_cfg.s_instance_loss = SigmoidBinaryCrossEntropyLoss()
+    # loss_cfg.s_instance_loss_weight = 1.0 if cfg.pretrain_mode else 1e-6
     # loss_cfg.s_instance_aux_loss = SigmoidBinaryCrossEntropyLoss()
     # loss_cfg.s_instance_aux_loss_weight = 0.4
 
@@ -159,13 +158,13 @@ def train(model, cfg, model_cfg):
     )
     
     eval_metrics = [
-        AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances")
+        # AdaptiveIoU(name="support_iou", pred_output="s_instances", gt_output="s_instances")
     ]
     if not cfg.pretrain_mode:
         eval_metrics.append(
             AdaptiveIoU(name="query_iou", pred_output="q_masks", gt_output="q_masks")
         )
-    trainer = iFSSTrainer(
+    trainer = FSSTrainer(
         model,
         cfg,
         model_cfg,
@@ -176,7 +175,7 @@ def train(model, cfg, model_cfg):
         optimizer_params=optimizer_params,
         lr_scheduler=lr_scheduler,
         checkpoint_interval=[(0, 20), (100, 10)],  # (epoch_num, interval)
-        image_dump_interval=50,  # FIXME: units?
+        image_dump_interval=0,  # FIXME: units?
         metrics=eval_metrics,
         max_interactive_points=model_cfg.num_max_points,
         max_num_next_clicks=3,

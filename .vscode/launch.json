@@ -106,5 +106,25 @@
             },
             "justMyCode": false
         },
+        {
+            "name": "fss-pfenet-debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "models/fss_models/pfenet_sbd_fss.py",
+                "--gpus=0",
+                "--workers=1",
+                "--batch-size=4", 
+                "--exp-name=debug",
+                "--debug=one_batch_overfit",
+                // "--pretrain-mode",
+            ],
+            "env": {
+                "DEBUG":"1",
+            },
+            "justMyCode": false
+        },
     ]
 }

@@ -12,14 +12,14 @@ from isegm.model.modifiers import LRMult
 # from .modeling.deeplab_v3 import _DeepLabHead, _SkipProject, _ASPP
 # from .modeling.basic_blocks import SepConvHead
 
-from isegm.model.ifss_model import iFSSModel
+from isegm.model.fss_model import FSSModel
 
 from isegm.model.modeling.pfenet_utils import resnet as models
 from isegm.model.modeling.deeplab_v3 import _DeepLabHead, _SkipProject, _ASPP
 from isegm.model.modeling.basic_blocks import SepConvHead
     
 
-class ModifiedPFENetModel(iFSSModel):
+class PFENetModel(FSSModel):
     @serialize
     def __init__(
         self,
@@ -28,7 +28,6 @@ class ModifiedPFENetModel(iFSSModel):
         aspp_dropout=0.5,
         backbone_norm_layer=None, 
         backbone_lr_mult=0.0, 
-        support_decoder_lr_mult=0.0,
         norm_layer=nn.BatchNorm2d,
         **kwargs
     ):
@@ -162,41 +161,6 @@ class ModifiedPFENetModel(iFSSModel):
             ))     
         self.alpha_conv = nn.ModuleList(self.alpha_conv)
         
-        # Support decoder
-        self.skip_project_in_channels = 256
-        self.aspp_in_channels = 2048
-        self.skip_project = _SkipProject(
-            in_channels=self.skip_project_in_channels, 
-            out_channels=32, 
-            norm_layer=self.norm_layer
-        )
-        self.aspp = _ASPP(
-            in_channels=self.aspp_in_channels,
-            atrous_rates=[12, 24, 36],
-            out_channels=deeplab_ch,
-            project_dropout=aspp_dropout,
-            norm_layer=self.norm_layer
-        )
-        self.neck = _DeepLabHead(
-            in_channels=deeplab_ch + 32, 
-            mid_channels=deeplab_ch, 
-            out_channels=deeplab_ch,
-            norm_layer=self.norm_layer
-        )
-        self.head = SepConvHead(
-            num_outputs=1, 
-            in_channels=deeplab_ch, 
-            mid_channels=deeplab_ch // 2,
-            num_layers=2, 
-            norm_layer=norm_layer
-        )
-        
-        for m in [self.skip_project, self.aspp, self.neck, self.head]:
-            if support_decoder_lr_mult > 0.0:
-                m.apply(LRMult(support_decoder_lr_mult))
-            else:
-                for param in m.parameters():
-                    param.requires_grad = False
         
     def weighted_GAP(self, supp_feat, mask):
         supp_feat = supp_feat * mask
@@ -220,21 +184,13 @@ class ModifiedPFENetModel(iFSSModel):
     def support_forward(
         self, image, s_gt=None, coord_features=None, filter_threshold=0.5
     ):
-        """
-        Args:
-            - s_gt: available during pretraining (FSS pretraining)
-            - coord_features: some function of the image, prev mask
-                and the click points. May or may not be provided. 
-        """
-        
         # TODO: Change these based on pretrain_mode
         return_helpers = True
         train_backbone = False
         train_decoder = False
         
-        # ! Temporary fix
         s_x = image.unsqueeze(1)
-        s_y = s_gt.unsqueeze(1)  # !!! When s_gt is None, use the self generated mask instead
+        s_y = s_gt.unsqueeze(1)
         
         # Support Feature
         # TODO: Improve this code: presentation and performance
@@ -276,25 +232,7 @@ class ModifiedPFENetModel(iFSSModel):
                 supp_feat = self.weighted_GAP(supp_feat, mask)
                 supp_feat_list.append(supp_feat)
             
-            # Decoding
-            with torch.set_grad_enabled(train_decoder):
-                supp_feat_1 = self.skip_project(supp_feat_1)
-                x = self.aspp(supp_feat_4)
-                x = F.interpolate(x, supp_feat_1.size()[2:], mode='bilinear', align_corners=True)
-                x = torch.cat((x, supp_feat_1), dim=1)
-                
-                x = self.neck(x)
-                x = self.stabilize_features(x, "neck")
-                x = self.head(x)
-                x = self.stabilize_features(x, "head")
-                
-                x = F.interpolate(x, size=image.size()[-2:], mode='bilinear', align_corners=True)
-                
-                decoder_outputs.append(x)
-        
-        out_dir = {
-            "instances": decoder_outputs[0],  # ! Temporary fix, need to change this for multi shot
-        }
+        out_dir = {}
 
         if return_helpers:
             out_dir["query_helpers"] = {
