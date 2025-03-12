@@ -35,7 +35,7 @@ def init_model(cfg):
         use_disks=True,
         norm_radius=5,
         with_prev_mask=True,
-        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.1,
+        backbone_lr_mult=1.0 if cfg.pretrain_mode else 0.0,
     )
     
     model.to(cfg.device)
@@ -69,18 +69,18 @@ def train(model, cfg, model_cfg):
         loss_cfg.q_mask_loss = SigmoidBinaryCrossEntropyLoss()
         loss_cfg.q_mask_loss_weight = 1.0
         loss_cfg.q_mask_aux_loss = SigmoidBinaryCrossEntropyLoss()
-        # loss_cfg.q_mask_aux_loss_weight = 0.4
+        # loss_cfg.q_mask_aux_loss_weight = 0.5
         loss_cfg.q_mask_aux_loss_weight = 1.0
 
     train_augmentator = Compose(
         [
-            # UniformRandomResize(scale_range=(0.75, 1.25)),
-            # Flip(),
-            # RandomRotate90(),
-            # ShiftScaleRotate(border_mode=0, p=0.75),
+            UniformRandomResize(scale_range=(0.75, 1.25)),
+            Flip(),
+            RandomRotate90(),
+            ShiftScaleRotate(border_mode=0, p=0.75),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            # RandomCrop(*crop_size),
-            CenterCrop(*crop_size),
+            RandomCrop(*crop_size),
+            # CenterCrop(*crop_size),
             # RandomBrightnessContrast(),
             # RGBShift(
             #     r_shift_limit=(-10, 10),
@@ -100,10 +100,10 @@ def train(model, cfg, model_cfg):
 
     val_augmentator = Compose(
         [
-            # UniformRandomResize(scale_range=(0.75, 1.25)),
+            UniformRandomResize(scale_range=(0.75, 1.25)),
             PadIfNeeded(min_height=crop_size[0], min_width=crop_size[1], border_mode=0),
-            # RandomCrop(*crop_size),
-            CenterCrop(*crop_size),
+            RandomCrop(*crop_size),
+            # CenterCrop(*crop_size),
             Normalize(
                 mean=(0.485, 0.456, 0.406), 
                 std=(0.229, 0.224, 0.225), 
@@ -150,7 +150,8 @@ def train(model, cfg, model_cfg):
             points_sampler=points_sampler,
         )
 
-    lr = 3e-4
+    # lr = 3e-4
+    lr = 3e-3
     optimizer_params = {"lr": lr, "betas": (0.9, 0.999), "eps": 1e-8}
 
     lr_scheduler = partial(

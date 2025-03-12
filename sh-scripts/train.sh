@@ -28,12 +28,17 @@ export DEBUG=1
 #     --exp-name=ifss-expt-00 \
 #     # --exp-name=debug \
 
+# python train.py \
+#     models/fss_models/pfenet_sbd_fss.py \
+#     --gpus=0 \
+#     --workers=1 \
+#     --batch-size=8 \
+#     --exp-name=debug-b8-lr0.003 \
+#     --debug=one_batch_overfit
+
 python train.py \
     models/fss_models/pfenet_sbd_fss.py \
     --gpus=0 \
-    --workers=1 \
+    --workers=8 \
     --batch-size=16 \
-    --exp-name=debug-b16 \
-    --debug=one_batch_overfit \
-    # --weights="weights/pfenet_ifss_pretraining.pth" \
-    # --pretrain-mode \
+    --exp-name=expt-01-b16-lr0.003 \

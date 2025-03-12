@@ -29,95 +29,93 @@ class FSSModel(nn.Module):
         self.binary_prev_mask = binary_prev_mask
         self.normalization = BatchImageNormalize(norm_mean_std[0], norm_mean_std[1])
 
-        self.coord_feature_ch = 2
-        if clicks_groups is not None:
-            self.coord_feature_ch *= len(clicks_groups)
+        # self.coord_feature_ch = 2
+        # if clicks_groups is not None:
+        #     self.coord_feature_ch *= len(clicks_groups)
 
-        if self.with_prev_mask:
-            self.coord_feature_ch += 1
+        # if self.with_prev_mask:
+        #     self.coord_feature_ch += 1
 
-        if use_rgb_conv:
-            rgb_conv_layers = [
-                nn.Conv2d(
-                    in_channels=3 + self.coord_feature_ch,
-                    out_channels=6 + self.coord_feature_ch,
-                    kernel_size=1,
-                ),
-                norm_layer(6 + self.coord_feature_ch),
-                (
-                    nn.LeakyReLU(negative_slope=0.2)
-                    if use_leaky_relu
-                    else nn.ReLU(inplace=True)
-                ),
-                nn.Conv2d(
-                    in_channels=6 + self.coord_feature_ch, out_channels=3, kernel_size=1
-                ),
-            ]
-            self.rgb_conv = nn.Sequential(*rgb_conv_layers)
-        elif conv_extend:
-            self.rgb_conv = None
-            self.maps_transform = nn.Conv2d(
-                in_channels=self.coord_feature_ch,
-                out_channels=64,
-                kernel_size=3,
-                stride=2,
-                padding=1,
-            )
-            self.maps_transform.apply(LRMult(0.1))
-        else:
-            self.rgb_conv = None
-            mt_layers = [
-                nn.Conv2d(
-                    in_channels=self.coord_feature_ch, out_channels=16, kernel_size=1
-                ),
-                (
-                    nn.LeakyReLU(negative_slope=0.2)
-                    if use_leaky_relu
-                    else nn.ReLU(inplace=True)
-                ),
-                nn.Conv2d(
-                    in_channels=16, out_channels=64, kernel_size=3, stride=2, padding=1
-                ),
-                ScaleLayer(init_value=0.05, lr_mult=1),
-            ]
-            self.maps_transform = nn.Sequential(*mt_layers)
+        # if use_rgb_conv:
+        #     rgb_conv_layers = [
+        #         nn.Conv2d(
+        #             in_channels=3 + self.coord_feature_ch,
+        #             out_channels=6 + self.coord_feature_ch,
+        #             kernel_size=1,
+        #         ),
+        #         norm_layer(6 + self.coord_feature_ch),
+        #         (
+        #             nn.LeakyReLU(negative_slope=0.2)
+        #             if use_leaky_relu
+        #             else nn.ReLU(inplace=True)
+        #         ),
+        #         nn.Conv2d(
+        #             in_channels=6 + self.coord_feature_ch, out_channels=3, kernel_size=1
+        #         ),
+        #     ]
+        #     self.rgb_conv = nn.Sequential(*rgb_conv_layers)
+        # elif conv_extend:
+        #     self.rgb_conv = None
+        #     self.maps_transform = nn.Conv2d(
+        #         in_channels=self.coord_feature_ch,
+        #         out_channels=64,
+        #         kernel_size=3,
+        #         stride=2,
+        #         padding=1,
+        #     )
+        #     self.maps_transform.apply(LRMult(0.1))
+        # else:
+        #     self.rgb_conv = None
+        #     mt_layers = [
+        #         nn.Conv2d(
+        #             in_channels=self.coord_feature_ch, out_channels=16, kernel_size=1
+        #         ),
+        #         (
+        #             nn.LeakyReLU(negative_slope=0.2)
+        #             if use_leaky_relu
+        #             else nn.ReLU(inplace=True)
+        #         ),
+        #         nn.Conv2d(
+        #             in_channels=16, out_channels=64, kernel_size=3, stride=2, padding=1
+        #         ),
+        #         ScaleLayer(init_value=0.05, lr_mult=1),
+        #     ]
+        #     self.maps_transform = nn.Sequential(*mt_layers)
 
-        if self.clicks_groups is not None:
-            self.dist_maps = nn.ModuleList()
-            for click_radius in self.clicks_groups:
-                self.dist_maps.append(
-                    DistMaps(
-                        norm_radius=click_radius,
-                        spatial_scale=1.0,
-                        cpu_mode=cpu_dist_maps,
-                        use_disks=use_disks,
-                    )
-                )
-        else:
-            self.dist_maps = DistMaps(
-                norm_radius=norm_radius,
-                spatial_scale=1.0,
-                cpu_mode=cpu_dist_maps,
-                use_disks=use_disks,
-            )
+        # if self.clicks_groups is not None:
+        #     self.dist_maps = nn.ModuleList()
+        #     for click_radius in self.clicks_groups:
+        #         self.dist_maps.append(
+        #             DistMaps(
+        #                 norm_radius=click_radius,
+        #                 spatial_scale=1.0,
+        #                 cpu_mode=cpu_dist_maps,
+        #                 use_disks=use_disks,
+        #             )
+        #         )
+        # else:
+        #     self.dist_maps = DistMaps(
+        #         norm_radius=norm_radius,
+        #         spatial_scale=1.0,
+        #         cpu_mode=cpu_dist_maps,
+        #         use_disks=use_disks,
+        #     )
 
     def forward(self, s_inputs, q_inputs, pretraining_enabled):
-        s_image, prev_s_mask = self.prepare_input(s_inputs.image, s_inputs.prev_output)
-        coord_features = self.get_coord_features(s_image, prev_s_mask, s_inputs.points)
+        # s_image, prev_s_mask = self.prepare_input(s_inputs.image, s_inputs.prev_output)
+        # coord_features = self.get_coord_features(s_image, prev_s_mask, s_inputs.points)
 
-        if self.rgb_conv is not None:
-            x = self.rgb_conv(torch.cat((s_image, coord_features), dim=1))
-            s_outputs = self.support_forward(x, s_inputs.gt)
-        else:
-            coord_features = self.maps_transform(coord_features)
-            s_outputs = self.support_forward(s_image, s_inputs.gt, coord_features)
+        # if self.rgb_conv is not None:
+        #     x = self.rgb_conv(torch.cat((s_image, coord_features), dim=1))
+        #     s_outputs = self.support_forward(x, s_inputs.gt)
+        # else:
+        #     coord_features = self.maps_transform(coord_features)
+        #     s_outputs = self.support_forward(s_image, s_inputs.gt, coord_features)
 
+        s_outputs = self.support_forward(s_inputs.image, s_inputs.gt)
         if not pretraining_enabled:
             helpers = s_outputs.pop("query_helpers", None)
-            if helpers is None:  # For hrnet-ifss version
-                helpers = s_outputs["prototypes"]
-            else:
-                helpers["q_gt"] = q_inputs.gt
+            helpers["q_gt"] = q_inputs.gt
             q_outputs = self.query_forward(
                 q_inputs.image,
                 q_inputs.prev_output,
@@ -171,11 +169,6 @@ class FSSModel(nn.Module):
     def prepare_input(self, image, prev_mask):
         if self.binary_prev_mask:
             prev_mask = (prev_mask > 0.5).float()
-
-        # image = self.normalization(image) # ! Doesn't work for pfenet-ritm
-                                            # ! no idea why i put it in the first place
-                                            # ! even for ifss-ritm, the dataset already
-                                            # ! normalizes the image
         return image, prev_mask 
 
     def backbone_forward(self, image, coord_features=None):

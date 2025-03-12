@@ -38,19 +38,19 @@ class PFENetModel(FSSModel):
         self.shot = 1
         
         # Query input: encoperating previous outputs
-        use_leaky_relu = True
-        query_input_layers = [
-            nn.Conv2d(in_channels=3 + 1, out_channels=6 + 1, kernel_size=1),
-            norm_layer(6 + 1),
-            (
-                nn.LeakyReLU(negative_slope=0.2)
-                if use_leaky_relu
-                else nn.ReLU(inplace=True)
-            ),
-            nn.Conv2d(in_channels=6 + 1, out_channels=3, kernel_size=1),
-        ]
+        # use_leaky_relu = True
+        # query_input_layers = [
+        #     nn.Conv2d(in_channels=3 + 1, out_channels=6 + 1, kernel_size=1),
+        #     norm_layer(6 + 1),
+        #     (
+        #         nn.LeakyReLU(negative_slope=0.2)
+        #         if use_leaky_relu
+        #         else nn.ReLU(inplace=True)
+        #     ),
+        #     nn.Conv2d(in_channels=6 + 1, out_channels=3, kernel_size=1),
+        # ]
 
-        self.query_input = nn.Sequential(*query_input_layers)
+        # self.query_input = nn.Sequential(*query_input_layers)
 
         ###### Building backbone ######
         if backbone == 'resnet50':
@@ -187,14 +187,14 @@ class PFENetModel(FSSModel):
         # TODO: Change these based on pretrain_mode
         return_helpers = True
         train_backbone = False
-        train_decoder = False
+        # train_decoder = False
         
         s_x = image.unsqueeze(1)
         s_y = s_gt.unsqueeze(1)
         
         # Support Feature
         # TODO: Improve this code: presentation and performance
-        decoder_outputs = []
+        # decoder_outputs = []
         supp_feat_list = []
         final_supp_list = []
         mask_list = []
@@ -251,7 +251,8 @@ class PFENetModel(FSSModel):
         train_backbone = False
         
         # TODO: Merge previous output with the current image
-        x = self.query_input(torch.cat((image, prev_output), dim=1))
+        # x = self.query_input(torch.cat((image, prev_output), dim=1))
+        x = image
 
         x_size = x.size()
         assert (x_size[2]-1) % 8 == 0 and (x_size[3]-1) % 8 == 0
